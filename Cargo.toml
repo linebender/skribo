@@ -1,0 +1,11 @@
+[package]
+name = "skribo"
+version = "0.0.1"
+authors = ["Raph Levien <raph.levien@gmail.com>"]
+license = "MIT/Apache-2.0"
+edition = "2018"
+keywords = ["graphics", "text", "formatting", "layout"]
+repository = "https://github.com/linebender/skribo"
+description = "A Rust library for low-level text layout."
+readme = "README.md"
+categories = ["graphics", "text-processing"]
