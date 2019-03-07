@@ -9,3 +9,9 @@ repository = "https://github.com/linebender/skribo"
 description = "A Rust library for low-level text layout."
 readme = "README.md"
 categories = ["graphics", "text-processing"]
+
+[dependencies]
+# TODO: will make back-end optional
+harfbuzz = "0.3.0"
+euclid = "0.19"
+font-kit = "0.1.0"
