@@ -14,4 +14,4 @@ categories = ["graphics", "text-processing"]
 # TODO: will make back-end optional
 harfbuzz = "0.3.0"
 euclid = "0.19"
-font-kit = "0.1.0"
+font-kit = { version = "0.1.0"} #, features = ["loader-freetype-default"] }
