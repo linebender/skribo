@@ -40,6 +40,7 @@ impl SimpleSurface {
     fn paint_from_canvas(&mut self, canvas: &Canvas, x: i32, y: i32) {
         let (cw, ch) = (canvas.size.width as i32, canvas.size.height as i32);
         let (w, h) = (self.width as i32, self.height as i32);
+        let y = y - ch;
         let xmin = 0.max(-x);
         let xmax = cw.min(w - x);
         let ymin = 0.max(-y);
@@ -79,8 +80,12 @@ impl SimpleSurface {
                 glyph_id, bounds, glyph_x, glyph_y
             );
             if !bounds.is_empty() {
+                let origin_adj = bounds.origin.to_f32();
+                let neg_origin = Point2D::new(-origin_adj.x, -origin_adj.y);
                 let mut canvas = Canvas::new(
-                    &Size2D::new(bounds.size.width as u32, bounds.size.height as u32),
+                    // Not sure why we need to add the extra pixel of height, probably a rounding isssue.
+                    // In any case, seems to get the job done (with CoreText rendering, anyway).
+                    &Size2D::new(bounds.size.width as u32, 1 + bounds.size.height as u32),
                     Format::A8,
                 );
                 font.rasterize_glyph(
@@ -88,12 +93,12 @@ impl SimpleSurface {
                     glyph_id,
                     // TODO(font-kit): this is missing anamorphic and skew features
                     layout.size,
-                    &Point2D::zero(), // TODO: include origin
+                    &neg_origin,
                     HintingOptions::None,
                     RasterizationOptions::GrayscaleAa,
                 )
                 .unwrap();
-                self.paint_from_canvas(&canvas, glyph_x, glyph_y);
+                self.paint_from_canvas(&canvas, glyph_x + bounds.origin.x, glyph_y - bounds.origin.y);
             }
         }
     }
@@ -145,9 +150,9 @@ fn main() {
     )
     .unwrap();
 
-    let layout = make_layout(&style, &font, "hello world");
+    let layout = make_layout(&style, &font, "hello graphics");
     println!("{:?}", layout);
     let mut surface = SimpleSurface::new(200, 50);
-    surface.paint_layout(&font, &layout, 0, 0);
+    surface.paint_layout(&font, &layout, 0, 35);
     surface.write_pgm("out.pgm").unwrap();
 }
