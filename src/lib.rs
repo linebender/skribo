@@ -1,6 +1,10 @@
 use euclid::Vector2D;
 use font_kit::loaders::default::Font;
 
+mod harfbuzz;
+
+pub use crate::harfbuzz::layout_run;
+
 pub struct TextStyle {
     // This should be either horiz and vert, or a 2x2 matrix
     pub size: f32,
@@ -22,6 +26,7 @@ pub struct Glyph {
     // TODO: more fields for advance, clusters, etc.
 }
 
+// This implementation just uses advances and doesn't do fallback.
 pub fn make_layout(style: &TextStyle, font: &Font, text: &str) -> Layout {
     let scale = style.size / (font.metrics().units_per_em as f32);
     let mut pos = Vector2D::zero();

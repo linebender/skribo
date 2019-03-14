@@ -11,7 +11,7 @@ use font_kit::loaders::default::Font;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
-use skribo::{make_layout, Layout, TextStyle};
+use skribo::{make_layout, layout_run, Layout, TextStyle};
 
 struct SimpleSurface {
     width: usize,
@@ -98,7 +98,11 @@ impl SimpleSurface {
                     RasterizationOptions::GrayscaleAa,
                 )
                 .unwrap();
-                self.paint_from_canvas(&canvas, glyph_x + bounds.origin.x, glyph_y - bounds.origin.y);
+                self.paint_from_canvas(
+                    &canvas,
+                    glyph_x + bounds.origin.x,
+                    glyph_y - bounds.origin.y,
+                );
             }
         }
     }
@@ -111,6 +115,10 @@ fn main() {
         .unwrap()
         .load()
         .unwrap();
+
+    let data = font.copy_font_data();
+    println!("font data: {:?} bytes", data.map(|d| d.len()));
+
     let style = TextStyle { size: 32.0 };
     let glyph_id = font.glyph_for_char('O').unwrap();
     println!("glyph id = {}", glyph_id);
@@ -150,7 +158,9 @@ fn main() {
     )
     .unwrap();
 
-    let layout = make_layout(&style, &font, "hello graphics");
+    let text = "Hello Typography";
+    //let layout = make_layout(&style, &font, text);
+    let layout = layout_run(&style, &font, text);
     println!("{:?}", layout);
     let mut surface = SimpleSurface::new(200, 50);
     surface.paint_layout(&font, &layout, 0, 35);
