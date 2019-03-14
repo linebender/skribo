@@ -15,7 +15,7 @@ use harfbuzz::{Buffer, Direction, Language};
 
 use font_kit::loaders::default::Font;
 
-use crate::{Layout, TextStyle};
+use crate::{Glyph, Layout, TextStyle};
 
 struct HbFace {
     hb_face: *mut hb_face_t,
@@ -63,27 +63,40 @@ pub fn layout_run(style: &TextStyle, font: &Font, text: &str) -> Layout {
         let glyph_infos = hb_buffer_get_glyph_infos(b.as_ptr(), &mut n_glyph);
         println!("number of glyphs: {}", n_glyph);
         let glyph_infos = std::slice::from_raw_parts(glyph_infos, n_glyph as usize);
-        for glyph in glyph_infos {
-            println!("{:?}", glyph);
-        }
         let mut n_glyph_pos = 0;
         let glyph_positions = hb_buffer_get_glyph_positions(b.as_ptr(), &mut n_glyph_pos);
         let glyph_positions = std::slice::from_raw_parts(glyph_positions, n_glyph_pos as usize);
-        for pos in glyph_positions {
-            println!("{:?}", pos);
+        let mut total_adv = Vector2D::zero();
+        let mut glyphs = Vec::new();
+        let scale = style.size / (font.metrics().units_per_em as f32);
+        for (glyph, pos) in glyph_infos.iter().zip(glyph_positions.iter()) {
+            //println!("{:?} {:?}", glyph, pos);
+            let adv = Vector2D::new(pos.x_advance, pos.y_advance);
+            let adv_f = adv.to_f32() * scale;
+            let offset = Vector2D::new(pos.x_offset, pos.y_offset).to_f32() * scale;
+            let g = Glyph {
+                glyph_id: glyph.codepoint,
+                offset: total_adv + offset,
+            };
+            total_adv += adv_f;
+            glyphs.push(g);
+
         }
+
         Layout {
             size: style.size,
-            glyphs: Vec::new(),
-            advance: Vector2D::zero(),
+            glyphs: glyphs,
+            advance: total_adv,
         }
     }
 }
 
+#[allow(unused)]
 fn float_to_fixed(f: f32) -> i32 {
     (f * 65536.0 + 0.5).floor() as i32
 }
 
+#[allow(unused)]
 fn fixed_to_float(i: hb_position_t) -> f32 {
     (i as f32) * (1.0 / 65536.0)
 }
