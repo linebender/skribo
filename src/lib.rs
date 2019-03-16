@@ -1,6 +1,7 @@
 use euclid::Vector2D;
 use font_kit::loaders::default::Font;
 
+mod collection;
 mod harfbuzz;
 
 pub use crate::harfbuzz::layout_run;
