@@ -22,6 +22,8 @@ The following functions are in scope:
 
 * Computation of data for faux bold and faux italic (as it's common for different font families in a font collection to have different coverage of styles).
 
+* Similarly, synthesis of small caps (will likely not be in initial implementation due to complexity).
+
 * Handling of unicode-range to effectively subset fonts in the stack. (Note: since this tends not to be directly supported in platform text stacks, it may be optionally supported by skribo)
 
 And these functions are out of scope, as they are in a higher level:
@@ -36,7 +38,7 @@ And these functions are out of scope, as they are in a higher level:
 
 * Line spacing (but with access to metrics that can be used to compute this).
 
-* Text-decodration (but providing enough metrics, such as underline-position, that the renderer can add them).
+* Text-decoration (but providing enough metrics, such as underline-position, that the renderer can add them).
 
 ## Access to system fonts and metadata
 
