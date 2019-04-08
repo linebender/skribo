@@ -36,15 +36,15 @@ pub struct Itemizer<'a> {
 
 impl FontRef {
     pub fn new(font: Font) -> FontRef {
-        FontRef { font: Arc::new(font) }
+        FontRef {
+            font: Arc::new(font),
+        }
     }
 }
 
 impl FontFamily {
     pub fn new() -> FontFamily {
-        FontFamily {
-            fonts: Vec::new(),
-        }
+        FontFamily { fonts: Vec::new() }
     }
 
     pub fn add_font(&mut self, font: FontRef) {
@@ -62,6 +62,7 @@ impl FontFamily {
         if let Some(font) = self.fonts.first() {
             let glyph_id = font.font.glyph_for_char(c);
             // TODO(font-kit): We're getting Some(0) for unsupported glyphs on CoreText
+            // and DirectWrite
             glyph_id.unwrap_or(0) != 0
         } else {
             false
@@ -90,7 +91,10 @@ impl FontCollection {
 
     // TODO: other style params, including locale list
     fn choose_font(&self, c: char) -> usize {
-        self.families.iter().position(|family| family.supports_codepoint(c)).unwrap_or(0)
+        self.families
+            .iter()
+            .position(|family| family.supports_codepoint(c))
+            .unwrap_or(0)
     }
 }
 

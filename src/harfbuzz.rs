@@ -6,17 +6,17 @@ use std::sync::Arc;
 use euclid::Vector2D;
 
 use harfbuzz::sys::{
-    hb_buffer_get_glyph_infos, hb_buffer_get_glyph_positions,
-    hb_blob_create, hb_blob_destroy, hb_blob_t, hb_face_create, hb_face_destroy, hb_face_reference, hb_face_t,
-    hb_font_create, hb_font_destroy, hb_shape, hb_position_t,
+    hb_blob_create, hb_blob_destroy, hb_blob_t, hb_buffer_get_glyph_infos,
+    hb_buffer_get_glyph_positions, hb_face_create, hb_face_destroy, hb_face_reference, hb_face_t,
+    hb_font_create, hb_font_destroy, hb_position_t, hb_shape,
 };
-use harfbuzz::sys::{HB_MEMORY_MODE_READONLY, HB_SCRIPT_LATIN};
+use harfbuzz::sys::{HB_MEMORY_MODE_READONLY, HB_SCRIPT_DEVANAGARI};
 use harfbuzz::{Buffer, Direction, Language};
 
 use font_kit::loaders::default::Font;
 
-use crate::{Glyph, Layout, TextStyle};
 use crate::{FontCollection, FontRef};
+use crate::{Glyph, Layout, TextStyle};
 
 struct HbFace {
     hb_face: *mut hb_face_t,
@@ -36,7 +36,9 @@ impl HbFace {
 impl Clone for HbFace {
     fn clone(&self) -> HbFace {
         unsafe {
-            HbFace { hb_face: hb_face_reference(self.hb_face) }
+            HbFace {
+                hb_face: hb_face_reference(self.hb_face),
+            }
         }
     }
 }
@@ -53,7 +55,8 @@ pub fn layout_run(style: &TextStyle, font: &FontRef, text: &str) -> Layout {
     let mut b = Buffer::new();
     b.add_str(text);
     b.set_direction(Direction::LTR);
-    b.set_script(HB_SCRIPT_LATIN);
+    // TODO: set this based on detected script
+    b.set_script(HB_SCRIPT_DEVANAGARI);
     b.set_language(Language::from_string("en_US"));
     let hb_face = HbFace::new(font);
     unsafe {
@@ -82,7 +85,6 @@ pub fn layout_run(style: &TextStyle, font: &FontRef, text: &str) -> Layout {
             };
             total_adv += adv_f;
             glyphs.push(g);
-
         }
 
         Layout {

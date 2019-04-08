@@ -10,7 +10,14 @@ use font_kit::hinting::HintingOptions;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
-use skribo::{make_layout, layout, layout_run, FontCollection, FontFamily, FontRef, Layout, TextStyle};
+use skribo::{
+    layout, layout_run, make_layout, FontCollection, FontFamily, FontRef, Layout, TextStyle,
+};
+
+#[cfg(target_family = "windows")]
+const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "NirmalaUI";
+#[cfg(target_os = "macos")]
+const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "DevanagariUI";
 
 struct SimpleSurface {
     width: usize,
@@ -65,7 +72,9 @@ impl SimpleSurface {
             let glyph_id = glyph.glyph_id;
             let glyph_x = (glyph.offset.x as i32) + x;
             let glyph_y = (glyph.offset.y as i32) + y;
-            let bounds = glyph.font.font
+            let bounds = glyph
+                .font
+                .font
                 .raster_bounds(
                     glyph_id,
                     layout.size,
@@ -87,16 +96,19 @@ impl SimpleSurface {
                     &Size2D::new(bounds.size.width as u32, 1 + bounds.size.height as u32),
                     Format::A8,
                 );
-                glyph.font.font.rasterize_glyph(
-                    &mut canvas,
-                    glyph_id,
-                    // TODO(font-kit): this is missing anamorphic and skew features
-                    layout.size,
-                    &neg_origin,
-                    HintingOptions::None,
-                    RasterizationOptions::GrayscaleAa,
-                )
-                .unwrap();
+                glyph
+                    .font
+                    .font
+                    .rasterize_glyph(
+                        &mut canvas,
+                        glyph_id,
+                        // TODO(font-kit): this is missing anamorphic and skew features
+                        layout.size,
+                        &neg_origin,
+                        HintingOptions::None,
+                        RasterizationOptions::GrayscaleAa,
+                    )
+                    .unwrap();
                 self.paint_from_canvas(
                     &canvas,
                     glyph_x + bounds.origin.x,
@@ -118,13 +130,13 @@ fn make_collection() -> FontCollection {
     collection.add_family(FontFamily::new_from_font(font));
 
     let font = source
-        .select_by_postscript_name("DevanagariMT")
+        .select_by_postscript_name(DEVANAGARI_FONT_POSTSCRIPT_NAME)
         .unwrap()
         .load()
         .unwrap();
     collection.add_family(FontFamily::new_from_font(font));
 
-   collection
+    collection
 }
 
 fn main() {
