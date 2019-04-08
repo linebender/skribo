@@ -3,6 +3,8 @@ use font_kit::loaders::default::Font;
 
 mod collection;
 mod harfbuzz;
+mod tables;
+mod unicode_funcs;
 
 pub use crate::collection::{FontCollection, FontFamily, FontRef};
 pub use crate::harfbuzz::layout_run;
