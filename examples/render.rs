@@ -7,11 +7,17 @@ use euclid::{Point2D, Size2D};
 use font_kit::canvas::{Canvas, Format, RasterizationOptions};
 use font_kit::family_name::FamilyName;
 use font_kit::hinting::HintingOptions;
-use font_kit::loaders::default::Font;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
-use skribo::{make_layout, layout_run, Layout, TextStyle};
+use skribo::{
+    layout, layout_run, make_layout, FontCollection, FontFamily, FontRef, Layout, TextStyle,
+};
+
+#[cfg(target_family = "windows")]
+const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "NirmalaUI";
+#[cfg(target_os = "macos")]
+const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "DevanagariUI";
 
 struct SimpleSurface {
     width: usize,
@@ -61,12 +67,14 @@ impl SimpleSurface {
         Ok(())
     }
 
-    fn paint_layout(&mut self, font: &Font, layout: &Layout, x: i32, y: i32) {
+    fn paint_layout(&mut self, layout: &Layout, x: i32, y: i32) {
         for glyph in &layout.glyphs {
             let glyph_id = glyph.glyph_id;
             let glyph_x = (glyph.offset.x as i32) + x;
             let glyph_y = (glyph.offset.y as i32) + y;
-            let bounds = font
+            let bounds = glyph
+                .font
+                .font
                 .raster_bounds(
                     glyph_id,
                     layout.size,
@@ -88,16 +96,19 @@ impl SimpleSurface {
                     &Size2D::new(bounds.size.width as u32, 1 + bounds.size.height as u32),
                     Format::A8,
                 );
-                font.rasterize_glyph(
-                    &mut canvas,
-                    glyph_id,
-                    // TODO(font-kit): this is missing anamorphic and skew features
-                    layout.size,
-                    &neg_origin,
-                    HintingOptions::None,
-                    RasterizationOptions::GrayscaleAa,
-                )
-                .unwrap();
+                glyph
+                    .font
+                    .font
+                    .rasterize_glyph(
+                        &mut canvas,
+                        glyph_id,
+                        // TODO(font-kit): this is missing anamorphic and skew features
+                        layout.size,
+                        &neg_origin,
+                        HintingOptions::None,
+                        RasterizationOptions::GrayscaleAa,
+                    )
+                    .unwrap();
                 self.paint_from_canvas(
                     &canvas,
                     glyph_x + bounds.origin.x,
@@ -108,8 +119,27 @@ impl SimpleSurface {
     }
 }
 
+fn make_collection() -> FontCollection {
+    let mut collection = FontCollection::new();
+    let source = SystemSource::new();
+    let font = source
+        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+        .unwrap()
+        .load()
+        .unwrap();
+    collection.add_family(FontFamily::new_from_font(font));
+
+    let font = source
+        .select_by_postscript_name(DEVANAGARI_FONT_POSTSCRIPT_NAME)
+        .unwrap()
+        .load()
+        .unwrap();
+    collection.add_family(FontFamily::new_from_font(font));
+
+    collection
+}
+
 fn main() {
-    println!("render test");
     let font = SystemSource::new()
         .select_best_match(&[FamilyName::SansSerif], &Properties::new())
         .unwrap()
@@ -158,11 +188,12 @@ fn main() {
     )
     .unwrap();
 
-    let text = "Hello Typography";
+    let text = "Hello हिन्दी";
     //let layout = make_layout(&style, &font, text);
-    let layout = layout_run(&style, &font, text);
+    let collection = make_collection();
+    let layout = layout(&style, &collection, text);
     println!("{:?}", layout);
     let mut surface = SimpleSurface::new(200, 50);
-    surface.paint_layout(&font, &layout, 0, 35);
+    surface.paint_layout(&layout, 0, 35);
     surface.write_pgm("out.pgm").unwrap();
 }

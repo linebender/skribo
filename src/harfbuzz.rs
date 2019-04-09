@@ -6,15 +6,16 @@ use std::sync::Arc;
 use euclid::Vector2D;
 
 use harfbuzz::sys::{
-    hb_buffer_get_glyph_infos, hb_buffer_get_glyph_positions,
-    hb_blob_create, hb_blob_destroy, hb_blob_t, hb_face_create, hb_face_destroy, hb_face_reference, hb_face_t,
-    hb_font_create, hb_font_destroy, hb_shape, hb_position_t,
+    hb_blob_create, hb_blob_destroy, hb_blob_t, hb_buffer_get_glyph_infos,
+    hb_buffer_get_glyph_positions, hb_face_create, hb_face_destroy, hb_face_reference, hb_face_t,
+    hb_font_create, hb_font_destroy, hb_position_t, hb_shape,
 };
-use harfbuzz::sys::{HB_MEMORY_MODE_READONLY, HB_SCRIPT_LATIN};
+use harfbuzz::sys::{HB_MEMORY_MODE_READONLY, HB_SCRIPT_DEVANAGARI};
 use harfbuzz::{Buffer, Direction, Language};
 
 use font_kit::loaders::default::Font;
 
+use crate::{FontCollection, FontRef};
 use crate::{Glyph, Layout, TextStyle};
 
 struct HbFace {
@@ -22,8 +23,8 @@ struct HbFace {
 }
 
 impl HbFace {
-    pub fn new(font: &Font) -> HbFace {
-        let data = font.copy_font_data().expect("font data unavailable");
+    pub fn new(font: &FontRef) -> HbFace {
+        let data = font.font.copy_font_data().expect("font data unavailable");
         let blob = ArcVecBlob::new(data);
         unsafe {
             let hb_face = hb_face_create(blob.into_raw(), 0);
@@ -35,7 +36,9 @@ impl HbFace {
 impl Clone for HbFace {
     fn clone(&self) -> HbFace {
         unsafe {
-            HbFace { hb_face: hb_face_reference(self.hb_face) }
+            HbFace {
+                hb_face: hb_face_reference(self.hb_face),
+            }
         }
     }
 }
@@ -48,11 +51,12 @@ impl Drop for HbFace {
     }
 }
 
-pub fn layout_run(style: &TextStyle, font: &Font, text: &str) -> Layout {
+pub fn layout_run(style: &TextStyle, font: &FontRef, text: &str) -> Layout {
     let mut b = Buffer::new();
     b.add_str(text);
     b.set_direction(Direction::LTR);
-    b.set_script(HB_SCRIPT_LATIN);
+    // TODO: set this based on detected script
+    b.set_script(HB_SCRIPT_DEVANAGARI);
     b.set_language(Language::from_string("en_US"));
     let hb_face = HbFace::new(font);
     unsafe {
@@ -68,19 +72,19 @@ pub fn layout_run(style: &TextStyle, font: &Font, text: &str) -> Layout {
         let glyph_positions = std::slice::from_raw_parts(glyph_positions, n_glyph_pos as usize);
         let mut total_adv = Vector2D::zero();
         let mut glyphs = Vec::new();
-        let scale = style.size / (font.metrics().units_per_em as f32);
+        let scale = style.size / (font.font.metrics().units_per_em as f32);
         for (glyph, pos) in glyph_infos.iter().zip(glyph_positions.iter()) {
             //println!("{:?} {:?}", glyph, pos);
             let adv = Vector2D::new(pos.x_advance, pos.y_advance);
             let adv_f = adv.to_f32() * scale;
             let offset = Vector2D::new(pos.x_offset, pos.y_offset).to_f32() * scale;
             let g = Glyph {
+                font: font.clone(),
                 glyph_id: glyph.codepoint,
                 offset: total_adv + offset,
             };
             total_adv += adv_f;
             glyphs.push(g);
-
         }
 
         Layout {
