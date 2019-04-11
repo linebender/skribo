@@ -1,5 +1,6 @@
 //! Example program for testing rendering with skribo.
 
+use std::env;
 use std::fs::File;
 use std::io::Write;
 
@@ -11,7 +12,7 @@ use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
 use skribo::{
-    layout, layout_run, make_layout, FontCollection, FontFamily, FontRef, Layout, TextStyle,
+    layout, layout_run, make_layout, FontCollection, FontFamily, FontRef, Layout, LayoutSession, TextStyle,
 };
 
 #[cfg(target_family = "windows")]
@@ -119,6 +120,61 @@ impl SimpleSurface {
             }
         }
     }
+
+    fn paint_layout_session(&mut self, layout: &LayoutSession, x: i32, y: i32) {
+        for run in layout.iter_all() {
+            let font = run.font();
+            let size = 32.0;  // TODO: probably should get this from run
+            println!("run, font = {:?}", font);
+            for glyph in run.glyphs() {
+                let glyph_id = glyph.glyph_id;
+                let glyph_x = (glyph.offset.x as i32) + x;
+                let glyph_y = (glyph.offset.y as i32) + y;
+                let bounds = font
+                    .font
+                    .raster_bounds(
+                        glyph_id,
+                        size,
+                        &Point2D::zero(),
+                        HintingOptions::None,
+                        RasterizationOptions::GrayscaleAa,
+                    )
+                    .unwrap();
+                println!(
+                    "glyph {}, bounds {:?}, {},{}",
+                    glyph_id, bounds, glyph_x, glyph_y
+                );
+                if !bounds.is_empty() {
+                    let origin_adj = bounds.origin.to_f32();
+                    let neg_origin = Point2D::new(-origin_adj.x, -origin_adj.y);
+                    let mut canvas = Canvas::new(
+                        // Not sure why we need to add the extra pixel of height, probably a rounding isssue.
+                        // In any case, seems to get the job done (with CoreText rendering, anyway).
+                        &Size2D::new(bounds.size.width as u32, 1 + bounds.size.height as u32),
+                        Format::A8,
+                    );
+                    font
+                        .font
+                        .rasterize_glyph(
+                            &mut canvas,
+                            glyph_id,
+                            // TODO(font-kit): this is missing anamorphic and skew features
+                            size,
+                            &neg_origin,
+                            HintingOptions::None,
+                            RasterizationOptions::GrayscaleAa,
+                        )
+                        .unwrap();
+                    self.paint_from_canvas(
+                        &canvas,
+                        glyph_x + bounds.origin.x,
+                        glyph_y - bounds.origin.y,
+                    );
+                }
+                println!("glyph {} @ {:?}", glyph.glyph_id, glyph.offset);
+            }
+        }
+    }
 }
 
 fn make_collection() -> FontCollection {
@@ -190,12 +246,19 @@ fn main() {
     )
     .unwrap();
 
-    let text = "Hello हिन्दी";
-    //let layout = make_layout(&style, &font, text);
+    let mut args = std::env::args();
+    args.next();
+    let text = args
+        .next()
+        .unwrap_or("Hello हिन्दी".to_string());
+    //let layout = make_layout(&style, &font, &text);
     let collection = make_collection();
-    let layout = layout(&style, &collection, text);
+    /*
+    let layout = layout(&style, &collection, &text);
     println!("{:?}", layout);
+    */
+    let layout = LayoutSession::create(&text, &style, &collection);
     let mut surface = SimpleSurface::new(200, 50);
-    surface.paint_layout(&layout, 0, 35);
+    surface.paint_layout_session(&layout, 0, 35);
     surface.write_pgm("out.pgm").unwrap();
 }

@@ -7,14 +7,18 @@ use harfbuzz::sys::{
     hb_buffer_get_glyph_positions, hb_face_create, hb_face_destroy, hb_face_reference, hb_face_t,
     hb_font_create, hb_font_destroy, hb_position_t, hb_shape,
 };
-use harfbuzz::sys::{HB_SCRIPT_DEVANAGARI};
 use harfbuzz::{Blob, Buffer, Direction, Language};
+use harfbuzz::sys::{
+    hb_script_t, HB_MEMORY_MODE_READONLY, HB_SCRIPT_COMMON, HB_SCRIPT_DEVANAGARI,
+    HB_SCRIPT_INHERITED, HB_SCRIPT_UNKNOWN,
+};
 
-use crate::unicode_funcs::install_unicode_funcs;
+use crate::session::LayoutFragment;
 use crate::{FontRef};
+use crate::unicode_funcs::{install_unicode_funcs, lookup_script};
 use crate::{Glyph, Layout, TextStyle};
 
-struct HbFace {
+pub(crate) struct HbFace {
     hb_face: *mut hb_face_t,
 }
 
@@ -88,6 +92,59 @@ pub fn layout_run(style: &TextStyle, font: &FontRef, text: &str) -> Layout {
             size: style.size,
             glyphs: glyphs,
             advance: total_adv,
+        }
+    }
+}
+
+pub(crate) fn layout_fragment(
+    style: &TextStyle,
+    font: &FontRef,
+    script: hb_script_t,
+    text: &str,
+) -> LayoutFragment {
+    let mut b = Buffer::new();
+    install_unicode_funcs(&mut b);
+    b.add_str(text);
+    b.set_direction(Direction::LTR);
+    b.set_script(script);
+    b.set_language(Language::from_string("en_US"));
+    let hb_face = HbFace::new(font);
+    unsafe {
+        let hb_font = hb_font_create(hb_face.hb_face);
+        hb_shape(hb_font, b.as_ptr(), std::ptr::null(), 0);
+        hb_font_destroy(hb_font);
+        let mut n_glyph = 0;
+        let glyph_infos = hb_buffer_get_glyph_infos(b.as_ptr(), &mut n_glyph);
+        println!("number of glyphs: {}", n_glyph);
+        let glyph_infos = std::slice::from_raw_parts(glyph_infos, n_glyph as usize);
+        let mut n_glyph_pos = 0;
+        let glyph_positions = hb_buffer_get_glyph_positions(b.as_ptr(), &mut n_glyph_pos);
+        let glyph_positions = std::slice::from_raw_parts(glyph_positions, n_glyph_pos as usize);
+        let mut total_adv = Vector2D::zero();
+        let mut glyphs = Vec::new();
+        let scale = style.size / (font.font.metrics().units_per_em as f32);
+        for (glyph, pos) in glyph_infos.iter().zip(glyph_positions.iter()) {
+            //println!("{:?} {:?}", glyph, pos);
+            let adv = Vector2D::new(pos.x_advance, pos.y_advance);
+            let adv_f = adv.to_f32() * scale;
+            let offset = Vector2D::new(pos.x_offset, pos.y_offset).to_f32() * scale;
+            let g = Glyph {
+                font: font.clone(),
+                glyph_id: glyph.codepoint,
+                offset: total_adv + offset,
+            };
+            total_adv += adv_f;
+            glyphs.push(g);
+        }
+
+        LayoutFragment {
+            //size: style.size,
+            substr_len: text.len(),
+            script,
+            glyphs: glyphs,
+            advance: total_adv,
+            hb_face: hb_face.clone(),
+            font: font.clone(),
         }
     }
 }
