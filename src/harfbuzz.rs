@@ -15,6 +15,7 @@ use harfbuzz::{Buffer, Direction, Language};
 
 use font_kit::loaders::default::Font;
 
+use crate::unicode_funcs::install_unicode_funcs;
 use crate::{FontCollection, FontRef};
 use crate::{Glyph, Layout, TextStyle};
 
@@ -53,6 +54,7 @@ impl Drop for HbFace {
 
 pub fn layout_run(style: &TextStyle, font: &FontRef, text: &str) -> Layout {
     let mut b = Buffer::new();
+    install_unicode_funcs(&mut b);
     b.add_str(text);
     b.set_direction(Direction::LTR);
     // TODO: set this based on detected script
