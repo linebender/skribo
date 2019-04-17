@@ -3,6 +3,7 @@
 use std::env;
 use std::fs::File;
 use std::io::Write;
+use std::ops::Range;
 
 use euclid::{Point2D, Size2D};
 use font_kit::canvas::{Canvas, Format, RasterizationOptions};
@@ -12,7 +13,8 @@ use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
 use skribo::{
-    layout, layout_run, make_layout, FontCollection, FontFamily, FontRef, Layout, LayoutSession, TextStyle,
+    layout, layout_run, make_layout, FontCollection, FontFamily, FontRef, Layout, LayoutSession,
+    TextStyle,
 };
 
 #[cfg(target_family = "windows")]
@@ -121,10 +123,16 @@ impl SimpleSurface {
         }
     }
 
-    fn paint_layout_session(&mut self, layout: &LayoutSession, x: i32, y: i32) {
-        for run in layout.iter_all() {
+    fn paint_layout_session(
+        &mut self,
+        layout: &mut LayoutSession,
+        x: i32,
+        y: i32,
+        range: Range<usize>,
+    ) {
+        for run in layout.iter_substr(range) {
             let font = run.font();
-            let size = 32.0;  // TODO: probably should get this from run
+            let size = 32.0; // TODO: probably should get this from run
             println!("run, font = {:?}", font);
             for glyph in run.glyphs() {
                 let glyph_id = glyph.glyph_id;
@@ -153,8 +161,7 @@ impl SimpleSurface {
                         &Size2D::new(bounds.size.width as u32, 1 + bounds.size.height as u32),
                         Format::A8,
                     );
-                    font
-                        .font
+                    font.font
                         .rasterize_glyph(
                             &mut canvas,
                             glyph_id,
@@ -257,8 +264,8 @@ fn main() {
     let layout = layout(&style, &collection, &text);
     println!("{:?}", layout);
     */
-    let layout = LayoutSession::create(&text, &style, &collection);
+    let mut layout = LayoutSession::create(&text, &style, &collection);
     let mut surface = SimpleSurface::new(200, 50);
-    surface.paint_layout_session(&layout, 0, 35);
+    surface.paint_layout_session(&mut layout, 0, 35, 0..text.len());
     surface.write_pgm("out.pgm").unwrap();
 }

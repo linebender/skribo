@@ -14,6 +14,7 @@ pub use crate::collection::{FontCollection, FontFamily, FontRef};
 pub use crate::hb_layout::layout_run;
 pub use crate::session::LayoutSession;
 
+#[derive(Clone)]
 pub struct TextStyle {
     // This should be either horiz and vert, or a 2x2 matrix
     pub size: f32,

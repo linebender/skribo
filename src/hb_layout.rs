@@ -9,13 +9,13 @@ use harfbuzz::sys::{
 };
 use harfbuzz::{Blob, Buffer, Direction, Language};
 use harfbuzz::sys::{
-    hb_script_t, HB_MEMORY_MODE_READONLY, HB_SCRIPT_COMMON, HB_SCRIPT_DEVANAGARI,
-    HB_SCRIPT_INHERITED, HB_SCRIPT_UNKNOWN,
+    hb_glyph_info_get_glyph_flags, hb_script_t, HB_GLYPH_FLAG_UNSAFE_TO_BREAK,
+    HB_MEMORY_MODE_READONLY, HB_SCRIPT_DEVANAGARI,
 };
 
-use crate::session::LayoutFragment;
+use crate::session::{FragmentGlyph, LayoutFragment};
+use crate::unicode_funcs::install_unicode_funcs;
 use crate::{FontRef};
-use crate::unicode_funcs::{install_unicode_funcs, lookup_script};
 use crate::{Glyph, Layout, TextStyle};
 
 pub(crate) struct HbFace {
@@ -51,6 +51,7 @@ impl Drop for HbFace {
     }
 }
 
+// TODO: Scheduled for demolition.
 pub fn layout_run(style: &TextStyle, font: &FontRef, text: &str) -> Layout {
     let mut b = Buffer::new();
     install_unicode_funcs(&mut b);
@@ -122,16 +123,24 @@ pub(crate) fn layout_fragment(
         let glyph_positions = std::slice::from_raw_parts(glyph_positions, n_glyph_pos as usize);
         let mut total_adv = Vector2D::zero();
         let mut glyphs = Vec::new();
+        // TODO: we might want to store this size-invariant.
         let scale = style.size / (font.font.metrics().units_per_em as f32);
         for (glyph, pos) in glyph_infos.iter().zip(glyph_positions.iter()) {
-            //println!("{:?} {:?}", glyph, pos);
             let adv = Vector2D::new(pos.x_advance, pos.y_advance);
             let adv_f = adv.to_f32() * scale;
             let offset = Vector2D::new(pos.x_offset, pos.y_offset).to_f32() * scale;
-            let g = Glyph {
-                font: font.clone(),
+            let flags = hb_glyph_info_get_glyph_flags(glyph);
+            let unsafe_to_break = flags & HB_GLYPH_FLAG_UNSAFE_TO_BREAK != 0;
+            println!(
+                "{:?} {:?} {} {}",
+                glyph, pos, glyph.cluster, unsafe_to_break
+            );
+            let g = FragmentGlyph {
+                cluster: glyph.cluster,
+                advance: adv_f,
                 glyph_id: glyph.codepoint,
                 offset: total_adv + offset,
+                unsafe_to_break,
             };
             total_adv += adv_f;
             glyphs.push(g);

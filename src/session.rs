@@ -1,5 +1,7 @@
 //! Retained layout that supports substring queries.
 
+use std::ops::Range;
+
 use harfbuzz::sys::{hb_script_t, HB_SCRIPT_COMMON, HB_SCRIPT_INHERITED, HB_SCRIPT_UNKNOWN};
 
 use euclid::Vector2D;
@@ -10,7 +12,11 @@ use crate::{FontCollection, FontRef, Glyph, TextStyle};
 
 pub struct LayoutSession<'a> {
     text: &'a str,
+    style: TextStyle,
     fragments: Vec<LayoutFragment>,
+
+    // A separate layout for the substring if needed.
+    substr_fragments: Vec<LayoutFragment>,
 }
 
 pub(crate) struct LayoutFragment {
@@ -18,14 +24,25 @@ pub(crate) struct LayoutFragment {
     pub(crate) substr_len: usize,
     pub(crate) script: hb_script_t,
     pub(crate) advance: Vector2D<f32>,
-    pub(crate) glyphs: Vec<Glyph>,
+    pub(crate) glyphs: Vec<FragmentGlyph>,
     pub(crate) hb_face: HbFace,
     pub(crate) font: FontRef,
 }
 
+// This should probably be renamed "glyph".
+//
+// Discussion topic: this is so similar to hb_glyph_info_t, maybe we
+// should just use that.
+pub(crate) struct FragmentGlyph {
+    pub cluster: u32,
+    pub glyph_id: u32,
+    pub offset: Vector2D<f32>,
+    pub advance: Vector2D<f32>,
+    pub unsafe_to_break: bool,
+}
+
 pub struct LayoutRangeIter<'a> {
-    // This probably wants to be a mut ref so we can stash resources in the session.
-    session: &'a LayoutSession<'a>,
+    fragments: &'a [LayoutFragment],
     offset: Vector2D<f32>,
     fragment_ix: usize,
 }
@@ -64,29 +81,78 @@ impl<'a> LayoutSession<'a> {
             }
             i += script_len;
         }
-        LayoutSession { text, fragments }
+        let substr_fragments = Vec::new();
+        LayoutSession {
+            text,
+            // Does this clone mean we should take style arg by-move?
+            style: style.clone(),
+            fragments,
+            substr_fragments,
+        }
     }
 
+    /// Iterate through all glyphs in the layout.
+    ///
+    /// Note: this is redundant with `iter_substr` with the whole string, might
+    /// not keep it.
     pub fn iter_all(&self) -> LayoutRangeIter {
         LayoutRangeIter {
             offset: Vector2D::zero(),
-            session: &self,
+            fragments: &self.fragments,
             fragment_ix: 0,
         }
     }
 
-    // TODO: similar function as iter_all but takes a range (maybe subsumes iter_all, as
-    // it has the same behavior with [0..text.len()]).
+    /// Iterate through the glyphs in the layout of the substring.
+    ///
+    /// This method reuses as much of the original layout as practical, almost
+    /// entirely reusing the itemization, but possibly doing re-layout.
+    pub fn iter_substr(&mut self, range: Range<usize>) -> LayoutRangeIter {
+        if range == (0..self.text.len()) {
+            return self.iter_all();
+        }
+        // TODO: reuse existing layout if unsafe_to_break flag is false at both endpoints.
+        let mut fragment_ix = 0;
+        let mut str_offset = 0;
+        while fragment_ix < self.fragments.len() {
+            let fragment_len = self.fragments[fragment_ix].substr_len;
+            if str_offset + fragment_len > range.start {
+                break;
+            }
+            str_offset += fragment_len;
+            fragment_ix += 1;
+        }
+        self.substr_fragments.clear();
+        while str_offset < range.end {
+            let fragment = &self.fragments[fragment_ix];
+            let fragment_len = fragment.substr_len;
+            let substr_start = range.start.max(str_offset);
+            let substr_end = range.end.min(str_offset + fragment_len);
+            let substr = &self.text[substr_start..substr_end];
+            let font = &fragment.font;
+            let script = fragment.script;
+            // TODO: we should pass in the hb_face too, just for performance.
+            let substr_fragment = layout_fragment(&self.style, font, script, substr);
+            self.substr_fragments.push(substr_fragment);
+            str_offset += fragment_len;
+            fragment_ix += 1;
+        }
+        LayoutRangeIter {
+            offset: Vector2D::zero(),
+            fragments: &self.substr_fragments,
+            fragment_ix: 0,
+        }
+    }
 }
 
 impl<'a> Iterator for LayoutRangeIter<'a> {
     type Item = LayoutRun<'a>;
 
     fn next(&mut self) -> Option<LayoutRun<'a>> {
-        if self.fragment_ix == self.session.fragments.len() {
+        if self.fragment_ix == self.fragments.len() {
             None
         } else {
-            let fragment = &self.session.fragments[self.fragment_ix];
+            let fragment = &self.fragments[self.fragment_ix];
             self.fragment_ix += 1;
             let offset = self.offset;
             self.offset += fragment.advance;
