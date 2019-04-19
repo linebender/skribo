@@ -1,22 +1,17 @@
 //! A HarfBuzz shaping back-end.
 
-use std::os::raw::{c_char, c_uint, c_void};
-use std::sync::Arc;
-
 use euclid::Vector2D;
 
 use harfbuzz::sys::{
-    hb_blob_create, hb_blob_destroy, hb_blob_t, hb_buffer_get_glyph_infos,
+    hb_buffer_get_glyph_infos,
     hb_buffer_get_glyph_positions, hb_face_create, hb_face_destroy, hb_face_reference, hb_face_t,
     hb_font_create, hb_font_destroy, hb_position_t, hb_shape,
 };
-use harfbuzz::sys::{HB_MEMORY_MODE_READONLY, HB_SCRIPT_DEVANAGARI};
-use harfbuzz::{Buffer, Direction, Language};
-
-use font_kit::loaders::default::Font;
+use harfbuzz::sys::{HB_SCRIPT_DEVANAGARI};
+use harfbuzz::{Blob, Buffer, Direction, Language};
 
 use crate::unicode_funcs::install_unicode_funcs;
-use crate::{FontCollection, FontRef};
+use crate::{FontRef};
 use crate::{Glyph, Layout, TextStyle};
 
 struct HbFace {
@@ -26,7 +21,7 @@ struct HbFace {
 impl HbFace {
     pub fn new(font: &FontRef) -> HbFace {
         let data = font.font.copy_font_data().expect("font data unavailable");
-        let blob = ArcVecBlob::new(data);
+        let blob = Blob::new_from_arc_vec(data);
         unsafe {
             let hb_face = hb_face_create(blob.into_raw(), 0);
             HbFace { hb_face }
@@ -128,48 +123,3 @@ unsafe extern "C" fn font_table_func(
     unimplemented!()
 }
 */
-
-/// A HarfBuzz blob that's backed by an `Arc<Vec>`.
-///
-/// Note: this can probably be merged with `Blob` in the harfbuzz crate.
-struct ArcVecBlob(*mut hb_blob_t);
-
-impl ArcVecBlob {
-    pub fn new(data: Arc<Vec<u8>>) -> ArcVecBlob {
-        let len = data.len();
-        assert!(len <= c_uint::max_value() as usize);
-        unsafe {
-            let data_ptr = data.as_ptr();
-            let ptr = Arc::into_raw(data);
-            let hb_blob = hb_blob_create(
-                data_ptr as *const c_char,
-                len as c_uint,
-                HB_MEMORY_MODE_READONLY,
-                ptr as *mut c_void,
-                Some(arc_vec_blob_destroy),
-            );
-            ArcVecBlob(hb_blob)
-        }
-    }
-
-    pub fn into_raw(self) -> *mut hb_blob_t {
-        let ptr = self.0;
-        std::mem::forget(self);
-        ptr
-    }
-}
-
-// Can implement Clone, Deref as needed; impls similar to harfbuzz crate
-
-impl Drop for ArcVecBlob {
-    fn drop(&mut self) {
-        unsafe {
-            hb_blob_destroy(self.0);
-        }
-    }
-}
-
-// This has type hb_destroy_func_t
-unsafe extern "C" fn arc_vec_blob_destroy(user_data: *mut c_void) {
-    std::mem::drop(Arc::from_raw(user_data as *const Vec<u8>))
-}
