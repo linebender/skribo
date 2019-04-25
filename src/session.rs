@@ -10,8 +10,8 @@ use crate::hb_layout::{layout_fragment, HbFace};
 use crate::unicode_funcs::lookup_script;
 use crate::{FontCollection, FontRef, Glyph, TextStyle};
 
-pub struct LayoutSession<'a> {
-    text: &'a str,
+pub struct LayoutSession<S: AsRef<str>> {
+    text: S,
     style: TextStyle,
     fragments: Vec<LayoutFragment>,
 
@@ -64,17 +64,17 @@ pub struct GlyphInfo {
     pub offset: Vector2D<f32>,
 }
 
-impl<'a> LayoutSession<'a> {
+impl<S: AsRef<str>> LayoutSession<S> {
     pub fn create(
-        text: &'a str,
+        text: S,
         style: &TextStyle,
         collection: &FontCollection,
-    ) -> LayoutSession<'a> {
+    ) -> LayoutSession<S> {
         let mut i = 0;
         let mut fragments = Vec::new();
-        while i < text.len() {
-            let (script, script_len) = get_script_run(&text[i..]);
-            let script_substr = &text[i..i + script_len];
+        while i < text.as_ref().len() {
+            let (script, script_len) = get_script_run(&text.as_ref()[i..]);
+            let script_substr = &text.as_ref()[i..i + script_len];
             for (range, font) in collection.itemize(script_substr) {
                 let fragment = layout_fragment(style, font, script, &script_substr[range]);
                 fragments.push(fragment);
@@ -108,7 +108,7 @@ impl<'a> LayoutSession<'a> {
     /// This method reuses as much of the original layout as practical, almost
     /// entirely reusing the itemization, but possibly doing re-layout.
     pub fn iter_substr(&mut self, range: Range<usize>) -> LayoutRangeIter {
-        if range == (0..self.text.len()) {
+        if range == (0..self.text.as_ref().len()) {
             return self.iter_all();
         }
         // TODO: reuse existing layout if unsafe_to_break flag is false at both endpoints.
@@ -128,7 +128,7 @@ impl<'a> LayoutSession<'a> {
             let fragment_len = fragment.substr_len;
             let substr_start = range.start.max(str_offset);
             let substr_end = range.end.min(str_offset + fragment_len);
-            let substr = &self.text[substr_start..substr_end];
+            let substr = &self.text.as_ref()[substr_start..substr_end];
             let font = &fragment.font;
             let script = fragment.script;
             // TODO: we should pass in the hb_face too, just for performance.

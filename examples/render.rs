@@ -123,9 +123,9 @@ impl SimpleSurface {
         }
     }
 
-    fn paint_layout_session(
+    fn paint_layout_session<S: AsRef<str>>(
         &mut self,
-        layout: &mut LayoutSession,
+        layout: &mut LayoutSession<S>,
         x: i32,
         y: i32,
         range: Range<usize>,
