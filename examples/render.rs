@@ -18,6 +18,8 @@ use skribo::{
 const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "NirmalaUI";
 #[cfg(target_os = "macos")]
 const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "DevanagariUI";
+#[cfg(target_os = "linux")]
+const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "NotoSerifDevanagari";
 
 struct SimpleSurface {
     width: usize,
@@ -131,7 +133,7 @@ fn make_collection() -> FontCollection {
 
     let font = source
         .select_by_postscript_name(DEVANAGARI_FONT_POSTSCRIPT_NAME)
-        .unwrap()
+        .expect("failed to select Devanagari font")
         .load()
         .unwrap();
     collection.add_family(FontFamily::new_from_font(font));
