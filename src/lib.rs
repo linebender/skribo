@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 use euclid::Vector2D;
 use font_kit::loaders::default::Font;
 
@@ -61,7 +64,7 @@ pub fn make_layout(style: &TextStyle, font: &FontRef, text: &str) -> Layout {
             if let Ok(adv) = font.font.advance(glyph_id) {
                 // TODO(font-kit): this doesn't get hinted advance (hdmx) table
                 let adv_f = adv * scale;
-                println!("{:?}", adv);
+                debug!("{:?}", adv);
                 let glyph = Glyph {
                     font: font.clone(),
                     glyph_id,

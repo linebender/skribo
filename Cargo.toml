@@ -16,3 +16,4 @@ harfbuzz-sys = "0.3.2"
 euclid = "0.19"
 font-kit = { version = "0.1.0"} #, features = ["loader-freetype-default"] }
 unicode-normalization = "0.1.8"
+log = "0.4"
