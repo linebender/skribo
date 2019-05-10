@@ -107,7 +107,7 @@ impl<'a> Iterator for Itemizer<'a> {
         if let Some(c) = chars_iter.next() {
             let mut end = start + c.len_utf8();
             let font_ix = self.collection.choose_font(c);
-            println!("{}: {}", c, font_ix);
+            debug!("{}: {}", c, font_ix);
             while let Some(c) = chars_iter.next() {
                 if font_ix != self.collection.choose_font(c) {
                     break;
