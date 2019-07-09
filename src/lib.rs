@@ -5,18 +5,22 @@ use euclid::Vector2D;
 use font_kit::loaders::default::Font;
 
 mod collection;
-mod harfbuzz;
+mod hb_layout;
+mod session;
 mod tables;
 mod unicode_funcs;
 
 pub use crate::collection::{FontCollection, FontFamily, FontRef};
-pub use crate::harfbuzz::layout_run;
+pub use crate::hb_layout::layout_run;
+pub use crate::session::LayoutSession;
 
+#[derive(Clone)]
 pub struct TextStyle {
     // This should be either horiz and vert, or a 2x2 matrix
     pub size: f32,
 }
 
+// TODO: remove this (in favor of LayoutSession, which might take over this name)
 #[derive(Debug)]
 pub struct Layout {
     pub size: f32,
@@ -24,6 +28,7 @@ pub struct Layout {
     pub advance: Vector2D<f32>,
 }
 
+// TODO: remove this (in favor of GlyphInfo as a public API)
 #[derive(Debug)]
 pub struct Glyph {
     pub font: FontRef,
