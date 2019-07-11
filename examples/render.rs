@@ -255,9 +255,7 @@ fn main() {
 
     let mut args = std::env::args();
     args.next();
-    let text = args
-        .next()
-        .unwrap_or("Hello हिन्दी".to_string());
+    let text = args.next().unwrap_or("Hello हिन्दी".to_string());
     //let layout = make_layout(&style, &font, &text);
     let collection = make_collection();
     /*

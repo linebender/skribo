@@ -65,11 +65,7 @@ pub struct GlyphInfo {
 }
 
 impl<S: AsRef<str>> LayoutSession<S> {
-    pub fn create(
-        text: S,
-        style: &TextStyle,
-        collection: &FontCollection,
-    ) -> LayoutSession<S> {
+    pub fn create(text: S, style: &TextStyle, collection: &FontCollection) -> LayoutSession<S> {
         let mut i = 0;
         let mut fragments = Vec::new();
         while i < text.as_ref().len() {
