@@ -8,7 +8,7 @@ use euclid::Vector2D;
 
 use crate::hb_layout::{layout_fragment, HbFace};
 use crate::unicode_funcs::lookup_script;
-use crate::{FontCollection, FontRef, Glyph, TextStyle};
+use crate::{FontCollection, FontRef, TextStyle};
 
 pub struct LayoutSession<S: AsRef<str>> {
     text: S,

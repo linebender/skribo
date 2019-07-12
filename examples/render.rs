@@ -1,6 +1,5 @@
 //! Example program for testing rendering with skribo.
 
-use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::ops::Range;
@@ -12,10 +11,7 @@ use font_kit::hinting::HintingOptions;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
-use skribo::{
-    layout, layout_run, make_layout, FontCollection, FontFamily, FontRef, Layout, LayoutSession,
-    TextStyle,
-};
+use skribo::*;
 
 #[cfg(target_family = "windows")]
 const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "NirmalaUI";
