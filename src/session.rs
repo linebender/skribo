@@ -215,7 +215,7 @@ pub(crate) fn get_script_run(text: &str) -> (hb_script_t, usize) {
     }
 }
 
-fn debug_script_runs(text: &str) {
+pub fn debug_script_runs(text: &str) {
     let mut text_substr = text;
     while !text_substr.is_empty() {
         let (script, len) = get_script_run(text_substr);

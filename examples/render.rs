@@ -201,12 +201,7 @@ fn main() {
     let mut args = std::env::args();
     args.next();
     let text = args.next().unwrap_or("Hello हिन्दी".to_string());
-    //let layout = make_layout(&style, &font, &text);
     let collection = make_collection();
-    /*
-    let layout = layout(&style, &collection, &text);
-    println!("{:?}", layout);
-    */
     let mut layout = LayoutSession::create(&text, &style, &collection);
     let mut surface = SimpleSurface::new(200, 50);
     surface.paint_layout_session(&mut layout, 0, 35, 0..text.len());

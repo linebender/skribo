@@ -113,25 +113,3 @@ fn float_to_fixed(f: f32) -> i32 {
 fn fixed_to_float(i: hb_position_t) -> f32 {
     (i as f32) * (1.0 / 65536.0)
 }
-
-/*
-struct FontFuncs(*mut hb_font_funcs_t);
-
-lazy_static! {
-    static ref HB_FONT_FUNCS: FontFuncs = unsafe {
-        let hb_funcs = hb_font_funcs_create();
-    }
-}
-*/
-
-/*
-// Callback to access table data in a font
-unsafe extern "C" fn font_table_func(
-    _: *mut hb_face_t,
-    tag: hb_tag_t,
-    user_data: *mut c_void,
-) -> *mut hb_blob_t {
-    let font = user_data as *const Font;
-    unimplemented!()
-}
-*/
