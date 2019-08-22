@@ -72,7 +72,8 @@ impl<S: AsRef<str>> LayoutSession<S> {
             let (script, script_len) = get_script_run(&text.as_ref()[i..]);
             let script_substr = &text.as_ref()[i..i + script_len];
             for (range, font) in collection.itemize(script_substr) {
-                let fragment = layout_fragment(style, font, script, &script_substr[range]);
+                let face = HbFace::new(font);
+                let fragment = layout_fragment(style, font, &face, script, &script_substr[range]);
                 fragments.push(fragment);
             }
             i += script_len;
@@ -126,9 +127,9 @@ impl<S: AsRef<str>> LayoutSession<S> {
             let substr_end = range.end.min(str_offset + fragment_len);
             let substr = &self.text.as_ref()[substr_start..substr_end];
             let font = &fragment.font;
+            let hb_face = &fragment.hb_face;
             let script = fragment.script;
-            // TODO: we should pass in the hb_face too, just for performance.
-            let substr_fragment = layout_fragment(&self.style, font, script, substr);
+            let substr_fragment = layout_fragment(&self.style, font, hb_face, script, substr);
             self.substr_fragments.push(substr_fragment);
             str_offset += fragment_len;
             fragment_ix += 1;
@@ -212,14 +213,5 @@ pub(crate) fn get_script_run(text: &str) -> (hb_script_t, usize) {
         (current_script, len)
     } else {
         (HB_SCRIPT_UNKNOWN, 0)
-    }
-}
-
-pub fn debug_script_runs(text: &str) {
-    let mut text_substr = text;
-    while !text_substr.is_empty() {
-        let (script, len) = get_script_run(text_substr);
-        println!("text {:?} script {:x}", &text_substr[..len], script);
-        text_substr = &text_substr[len..];
     }
 }

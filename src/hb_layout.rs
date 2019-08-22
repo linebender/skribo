@@ -46,6 +46,7 @@ impl Drop for HbFace {
 pub(crate) fn layout_fragment(
     style: &TextStyle,
     font: &FontRef,
+    hb_face: &HbFace,
     script: hb_script_t,
     text: &str,
 ) -> LayoutFragment {
@@ -55,7 +56,6 @@ pub(crate) fn layout_fragment(
     b.set_direction(Direction::LTR);
     b.set_script(script);
     b.set_language(Language::from_string("en_US"));
-    let hb_face = HbFace::new(font);
     unsafe {
         let hb_font = hb_font_create(hb_face.hb_face);
         hb_shape(hb_font, b.as_ptr(), std::ptr::null(), 0);
