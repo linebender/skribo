@@ -42,7 +42,7 @@ These functions should probably all take a range for substring queries (and mayb
 
 One feature applied by skribo after HarfBuzz is letterspacing. A good model to follow in general is [Minikin](https://android.googlesource.com/platform/frameworks/minikin/+/refs/heads/master/libs/minikin/Layout.cpp#633). There are a few considerations.
 
-First, not all scripts support letterspacing. Bascially, any script with joined or continuous glyphs will fare poorly. (As an advanced possible future feature, kashida could be added, but this is not supported by any current browser).
+First, not all scripts support letterspacing. Basically, any script with joined or continuous glyphs will fare poorly. (As an advanced possible future feature, kashida could be added, but this is not supported by any current browser).
 
 Second, ligatures like “fi” look bad when letterspacing is more than a small amount. Minikin [disables it](https://android.googlesource.com/platform/frameworks/minikin/+/refs/heads/master/libs/minikin/Layout.cpp#570) when the absolute value of letterSpacing is more than 0.03 (note that in Android, letter spacing is provided as a fraction of an em, which I think is a good idea).
 
