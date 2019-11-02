@@ -66,7 +66,7 @@ Text layout can be slow, and especially as more of the rendering pipeline is mov
 
 * Possibly fast paths for monospace fonts, including CJK. These have to be carefully designed to preserve semantics (unlike the "simple path" in Blink before it was removed).
 
-* Locale represntation can impact performance, so we plan work on [fluent-locale-rs] to reduce the size and allocation burden for locale objects.
+* Locale representation can impact performance, so we plan work on [fluent-locale-rs] to reduce the size and allocation burden for locale objects.
 
 ## Some open questions
 
@@ -86,7 +86,7 @@ Some of the groundwork can be done just by using proper types (vector rather tha
 
 ## Font variation
 
-A goal for skribo is to support font variation. This is tricky, in part because variation is a relatively new feature, so it probably won't be part of the intial implementation.
+A goal for skribo is to support font variation. This is tricky, in part because variation is a relatively new feature, so it probably won't be part of the initial implementation.
 
 Note that font variation support in DWrite is still [work in progress](https://docs.microsoft.com/en-us/windows/desktop/directwrite/opentype-variable-fonts#opentype-variable-font-support-in-directwrite) - there is support for using existing interfaces to set width and weight, and also named instances of variable fonts, but no direct support for general continuous variation.
 
