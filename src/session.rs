@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use harfbuzz::sys::{hb_script_t, HB_SCRIPT_COMMON, HB_SCRIPT_INHERITED, HB_SCRIPT_UNKNOWN};
 
-use euclid::Vector2D;
+use euclid::default::Vector2D;
 
 use crate::hb_layout::{layout_fragment, HbFace};
 use crate::unicode_funcs::lookup_script;

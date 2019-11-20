@@ -10,6 +10,7 @@ use font_kit::canvas::{Canvas, Format, RasterizationOptions};
 use font_kit::family_name::FamilyName;
 use font_kit::hinting::HintingOptions;
 use font_kit::properties::Properties;
+use font_kit::loader::FontTransform;
 use font_kit::source::SystemSource;
 
 use skribo::{
@@ -83,6 +84,7 @@ impl SimpleSurface {
                 .raster_bounds(
                     glyph_id,
                     layout.size,
+                    &FontTransform::identity(),
                     &Point2D::zero(),
                     HintingOptions::None,
                     RasterizationOptions::GrayscaleAa,
@@ -109,6 +111,7 @@ impl SimpleSurface {
                         glyph_id,
                         // TODO(font-kit): this is missing anamorphic and skew features
                         layout.size,
+                        &FontTransform::identity(),
                         &neg_origin,
                         HintingOptions::None,
                         RasterizationOptions::GrayscaleAa,
@@ -143,6 +146,7 @@ impl SimpleSurface {
                     .raster_bounds(
                         glyph_id,
                         size,
+                        &FontTransform::identity(),
                         &Point2D::zero(),
                         HintingOptions::None,
                         RasterizationOptions::GrayscaleAa,
@@ -167,6 +171,7 @@ impl SimpleSurface {
                             glyph_id,
                             // TODO(font-kit): this is missing anamorphic and skew features
                             size,
+                            &FontTransform::identity(),
                             &neg_origin,
                             HintingOptions::None,
                             RasterizationOptions::GrayscaleAa,
@@ -226,6 +231,7 @@ fn main() {
         font.raster_bounds(
             glyph_id,
             32.0,
+            &FontTransform::identity(),
             &Point2D::zero(),
             HintingOptions::None,
             RasterizationOptions::GrayscaleAa
@@ -237,6 +243,7 @@ fn main() {
         glyph_id,
         // TODO(font-kit): this is missing anamorphic and skew features
         style.size,
+        &FontTransform::identity(),
         &Point2D::zero(),
         HintingOptions::None,
         RasterizationOptions::GrayscaleAa,
@@ -247,6 +254,7 @@ fn main() {
         &mut canvas,
         glyph_id,
         style.size,
+        &FontTransform::identity(),
         &Point2D::new(16.0, 16.0),
         HintingOptions::None,
         RasterizationOptions::GrayscaleAa,
