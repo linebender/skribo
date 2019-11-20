@@ -10,7 +10,7 @@ use harfbuzz::sys::{
 use harfbuzz::{Blob, Buffer, Direction, Language};
 use harfbuzz::sys::{
     hb_glyph_info_get_glyph_flags, hb_script_t, HB_GLYPH_FLAG_UNSAFE_TO_BREAK,
-    HB_MEMORY_MODE_READONLY, HB_SCRIPT_DEVANAGARI,
+    HB_SCRIPT_DEVANAGARI,
 };
 
 use crate::session::{FragmentGlyph, LayoutFragment};
@@ -116,7 +116,7 @@ pub(crate) fn layout_fragment(
         hb_font_destroy(hb_font);
         let mut n_glyph = 0;
         let glyph_infos = hb_buffer_get_glyph_infos(b.as_ptr(), &mut n_glyph);
-        println!("number of glyphs: {}", n_glyph);
+        trace!("number of glyphs: {}", n_glyph);
         let glyph_infos = std::slice::from_raw_parts(glyph_infos, n_glyph as usize);
         let mut n_glyph_pos = 0;
         let glyph_positions = hb_buffer_get_glyph_positions(b.as_ptr(), &mut n_glyph_pos);
@@ -131,7 +131,7 @@ pub(crate) fn layout_fragment(
             let offset = Vector2D::new(pos.x_offset, pos.y_offset).to_f32() * scale;
             let flags = hb_glyph_info_get_glyph_flags(glyph);
             let unsafe_to_break = flags & HB_GLYPH_FLAG_UNSAFE_TO_BREAK != 0;
-            println!(
+            trace!(
                 "{:?} {:?} {} {}",
                 glyph, pos, glyph.cluster, unsafe_to_break
             );
