@@ -13,7 +13,7 @@ categories = ["graphics", "text-processing"]
 [dependencies]
 harfbuzz = "0.3.1"
 harfbuzz-sys = "0.3.2"
-euclid = "0.19"
-font-kit = { version = "0.2.0"} #, features = ["loader-freetype-default"] }
+euclid = "0.20"
+font-kit = { version = "0.4.0"} #, features = ["loader-freetype-default"] }
 unicode-normalization = "0.1.8"
 log = "0.4"

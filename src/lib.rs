@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate log;
 
-use euclid::Vector2D;
+use euclid::default::Vector2D;
 use font_kit::loaders::default::Font;
 
 mod collection;
