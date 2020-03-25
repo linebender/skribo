@@ -27,7 +27,7 @@ impl HbFace {
         let data = font.font.copy_font_data().expect("font data unavailable");
         let blob = Blob::new_from_arc_vec(data);
         unsafe {
-            let hb_face = hb_face_create(blob.into_raw(), 0);
+            let hb_face = hb_face_create(blob.as_raw(), 0);
             HbFace { hb_face }
         }
     }
@@ -152,7 +152,7 @@ pub(crate) fn layout_fragment(
             script,
             glyphs: glyphs,
             advance: total_adv,
-            hb_face: hb_face.clone(),
+            hb_face: hb_face,
             font: font.clone(),
         }
     }
