@@ -98,6 +98,18 @@ impl FontCollection {
     }
 }
 
+// This is the PostScript name of the font. Eventually this should be a unique ID.
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub(crate) struct FontId {
+    postscript_name: String,
+}
+
+impl FontId {
+    pub(crate) fn from_font(font: &FontRef) -> FontId {
+        FontId { postscript_name: font.font.postscript_name().unwrap_or_default() }
+    }
+}
+
 impl<'a> Iterator for Itemizer<'a> {
     type Item = (Range<usize>, &'a FontRef);
 
