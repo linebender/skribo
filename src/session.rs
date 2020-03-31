@@ -6,9 +6,9 @@ use harfbuzz::sys::{hb_script_t, HB_SCRIPT_COMMON, HB_SCRIPT_INHERITED, HB_SCRIP
 
 use euclid::default::Vector2D;
 
-use crate::hb_layout::{layout_fragment, HbFace};
+use crate::hb_layout::layout_fragment;
 use crate::unicode_funcs::lookup_script;
-use crate::{FontCollection, FontRef, Glyph, TextStyle};
+use crate::{FontCollection, FontRef, TextStyle};
 
 pub struct LayoutSession<S: AsRef<str>> {
     text: S,
@@ -25,7 +25,6 @@ pub(crate) struct LayoutFragment {
     pub(crate) script: hb_script_t,
     pub(crate) advance: Vector2D<f32>,
     pub(crate) glyphs: Vec<FragmentGlyph>,
-    pub(crate) hb_face: HbFace,
     pub(crate) font: FontRef,
 }
 

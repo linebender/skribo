@@ -1,6 +1,8 @@
 //! A HarfBuzz shaping back-end.
 
 use euclid::Vector2D;
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 use harfbuzz::sys::{
     hb_buffer_get_glyph_infos,
@@ -13,17 +15,38 @@ use harfbuzz::sys::{
     HB_SCRIPT_DEVANAGARI,
 };
 
+use crate::collection::FontId;
 use crate::session::{FragmentGlyph, LayoutFragment};
 use crate::unicode_funcs::install_unicode_funcs;
-use crate::{FontRef};
-use crate::{Glyph, Layout, TextStyle};
+use crate::{FontRef, Glyph, Layout, TextStyle};
+
+thread_local! {
+    static HB_THREAD_DATA: RefCell<HbThreadData> = RefCell::new(HbThreadData::new());
+}
+
+// Per-thread data for HarfBuzz.
+struct HbThreadData {
+    hb_face_cache: HashMap<FontId, HbFace>,
+}
+
+impl HbThreadData {
+    fn new() -> HbThreadData {
+        HbThreadData { hb_face_cache: HashMap::new() }
+    }
+
+    fn create_hb_face_for_font(&mut self, font: &FontRef) -> HbFace {
+        (*self.hb_face_cache.entry(FontId::from_font(font)).or_insert_with(|| {
+            HbFace::new(font)
+        })).clone()
+    }
+}
 
 pub(crate) struct HbFace {
     hb_face: *mut hb_face_t,
 }
 
 impl HbFace {
-    pub fn new(font: &FontRef) -> HbFace {
+    fn new(font: &FontRef) -> HbFace {
         let data = font.font.copy_font_data().expect("font data unavailable");
         let blob = Blob::new_from_arc_vec(data);
         unsafe {
@@ -53,48 +76,51 @@ impl Drop for HbFace {
 
 // TODO: Scheduled for demolition.
 pub fn layout_run(style: &TextStyle, font: &FontRef, text: &str) -> Layout {
-    let mut b = Buffer::new();
-    install_unicode_funcs(&mut b);
-    b.add_str(text);
-    b.set_direction(Direction::LTR);
-    // TODO: set this based on detected script
-    b.set_script(HB_SCRIPT_DEVANAGARI);
-    b.set_language(Language::from_string("en_US"));
-    let hb_face = HbFace::new(font);
-    unsafe {
-        let hb_font = hb_font_create(hb_face.hb_face);
-        hb_shape(hb_font, b.as_ptr(), std::ptr::null(), 0);
-        hb_font_destroy(hb_font);
-        let mut n_glyph = 0;
-        let glyph_infos = hb_buffer_get_glyph_infos(b.as_ptr(), &mut n_glyph);
-        debug!("number of glyphs: {}", n_glyph);
-        let glyph_infos = std::slice::from_raw_parts(glyph_infos, n_glyph as usize);
-        let mut n_glyph_pos = 0;
-        let glyph_positions = hb_buffer_get_glyph_positions(b.as_ptr(), &mut n_glyph_pos);
-        let glyph_positions = std::slice::from_raw_parts(glyph_positions, n_glyph_pos as usize);
-        let mut total_adv = Vector2D::zero();
-        let mut glyphs = Vec::new();
-        let scale = style.size / (font.font.metrics().units_per_em as f32);
-        for (glyph, pos) in glyph_infos.iter().zip(glyph_positions.iter()) {
-            debug!("{:?} {:?}", glyph, pos);
-            let adv = Vector2D::new(pos.x_advance, pos.y_advance);
-            let adv_f = adv.to_f32() * scale;
-            let offset = Vector2D::new(pos.x_offset, pos.y_offset).to_f32() * scale;
-            let g = Glyph {
-                font: font.clone(),
-                glyph_id: glyph.codepoint,
-                offset: total_adv + offset,
-            };
-            total_adv += adv_f;
-            glyphs.push(g);
-        }
+    HB_THREAD_DATA.with(|hb_thread_data| {
+        let mut hb_thread_data = hb_thread_data.borrow_mut();
+        let mut b = Buffer::new();
+        install_unicode_funcs(&mut b);
+        b.add_str(text);
+        b.set_direction(Direction::LTR);
+        // TODO: set this based on detected script
+        b.set_script(HB_SCRIPT_DEVANAGARI);
+        b.set_language(Language::from_string("en_US"));
+        let hb_face = hb_thread_data.create_hb_face_for_font(font);
+        unsafe {
+            let hb_font = hb_font_create(hb_face.hb_face);
+            hb_shape(hb_font, b.as_ptr(), std::ptr::null(), 0);
+            hb_font_destroy(hb_font);
+            let mut n_glyph = 0;
+            let glyph_infos = hb_buffer_get_glyph_infos(b.as_ptr(), &mut n_glyph);
+            debug!("number of glyphs: {}", n_glyph);
+            let glyph_infos = std::slice::from_raw_parts(glyph_infos, n_glyph as usize);
+            let mut n_glyph_pos = 0;
+            let glyph_positions = hb_buffer_get_glyph_positions(b.as_ptr(), &mut n_glyph_pos);
+            let glyph_positions = std::slice::from_raw_parts(glyph_positions, n_glyph_pos as usize);
+            let mut total_adv = Vector2D::zero();
+            let mut glyphs = Vec::new();
+            let scale = style.size / (font.font.metrics().units_per_em as f32);
+            for (glyph, pos) in glyph_infos.iter().zip(glyph_positions.iter()) {
+                debug!("{:?} {:?}", glyph, pos);
+                let adv = Vector2D::new(pos.x_advance, pos.y_advance);
+                let adv_f = adv.to_f32() * scale;
+                let offset = Vector2D::new(pos.x_offset, pos.y_offset).to_f32() * scale;
+                let g = Glyph {
+                    font: font.clone(),
+                    glyph_id: glyph.codepoint,
+                    offset: total_adv + offset,
+                };
+                total_adv += adv_f;
+                glyphs.push(g);
+            }
 
-        Layout {
-            size: style.size,
-            glyphs: glyphs,
-            advance: total_adv,
+            Layout {
+                size: style.size,
+                glyphs: glyphs,
+                advance: total_adv,
+            }
         }
-    }
+    })
 }
 
 pub(crate) fn layout_fragment(
@@ -152,7 +178,6 @@ pub(crate) fn layout_fragment(
             script,
             glyphs: glyphs,
             advance: total_adv,
-            hb_face: hb_face,
             font: font.clone(),
         }
     }
