@@ -1,22 +1,19 @@
 //! Example program for testing rendering with skribo.
 
-use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::ops::Range;
 
-use euclid::{Point2D, Size2D};
 use font_kit::canvas::{Canvas, Format, RasterizationOptions};
 use font_kit::family_name::FamilyName;
 use font_kit::hinting::HintingOptions;
 use font_kit::properties::Properties;
-use font_kit::loader::FontTransform;
 use font_kit::source::SystemSource;
 
-use skribo::{
-    layout, layout_run, make_layout, FontCollection, FontFamily, FontRef, Layout, LayoutSession,
-    TextStyle,
-};
+use skribo::{FontCollection, FontFamily, Layout, LayoutSession, TextStyle};
+
+use pathfinder_geometry::transform2d::Transform2F;
+use pathfinder_geometry::vector::{vec2f, vec2i};
 
 #[cfg(target_family = "windows")]
 const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "NirmalaUI";
@@ -50,7 +47,7 @@ impl SimpleSurface {
     }
 
     fn paint_from_canvas(&mut self, canvas: &Canvas, x: i32, y: i32) {
-        let (cw, ch) = (canvas.size.width as i32, canvas.size.height as i32);
+        let (cw, ch) = (canvas.size.x(), canvas.size.y());
         let (w, h) = (self.width as i32, self.height as i32);
         let y = y - ch;
         let xmin = 0.max(-x);
@@ -76,16 +73,15 @@ impl SimpleSurface {
     fn paint_layout(&mut self, layout: &Layout, x: i32, y: i32) {
         for glyph in &layout.glyphs {
             let glyph_id = glyph.glyph_id;
-            let glyph_x = (glyph.offset.x as i32) + x;
-            let glyph_y = (glyph.offset.y as i32) + y;
+            let glyph_x = (glyph.offset.x() as i32) + x;
+            let glyph_y = (glyph.offset.y() as i32) + y;
             let bounds = glyph
                 .font
                 .font
                 .raster_bounds(
                     glyph_id,
                     layout.size,
-                    &FontTransform::identity(),
-                    &Point2D::zero(),
+                    Transform2F::default(),
                     HintingOptions::None,
                     RasterizationOptions::GrayscaleAa,
                 )
@@ -94,13 +90,13 @@ impl SimpleSurface {
                 "glyph {}, bounds {:?}, {},{}",
                 glyph_id, bounds, glyph_x, glyph_y
             );
-            if !bounds.is_empty() {
-                let origin_adj = bounds.origin.to_f32();
-                let neg_origin = Point2D::new(-origin_adj.x, -origin_adj.y);
+            if bounds.width() > 0 && bounds.height() > 0 {
+                let origin_adj = bounds.origin().to_f32();
+                let neg_origin = -origin_adj;
                 let mut canvas = Canvas::new(
                     // Not sure why we need to add the extra pixel of height, probably a rounding isssue.
                     // In any case, seems to get the job done (with CoreText rendering, anyway).
-                    &Size2D::new(bounds.size.width as u32, 1 + bounds.size.height as u32),
+                    bounds.size() + vec2i(0, 1),
                     Format::A8,
                 );
                 glyph
@@ -111,16 +107,15 @@ impl SimpleSurface {
                         glyph_id,
                         // TODO(font-kit): this is missing anamorphic and skew features
                         layout.size,
-                        &FontTransform::identity(),
-                        &neg_origin,
+                        Transform2F::from_translation(neg_origin),
                         HintingOptions::None,
                         RasterizationOptions::GrayscaleAa,
                     )
                     .unwrap();
                 self.paint_from_canvas(
                     &canvas,
-                    glyph_x + bounds.origin.x,
-                    glyph_y - bounds.origin.y,
+                    glyph_x + bounds.origin_x(),
+                    glyph_y - bounds.origin_y(),
                 );
             }
         }
@@ -139,15 +134,14 @@ impl SimpleSurface {
             println!("run, font = {:?}", font);
             for glyph in run.glyphs() {
                 let glyph_id = glyph.glyph_id;
-                let glyph_x = (glyph.offset.x as i32) + x;
-                let glyph_y = (glyph.offset.y as i32) + y;
+                let glyph_x = (glyph.offset.x() as i32) + x;
+                let glyph_y = (glyph.offset.y() as i32) + y;
                 let bounds = font
                     .font
                     .raster_bounds(
                         glyph_id,
                         size,
-                        &FontTransform::identity(),
-                        &Point2D::zero(),
+                        Transform2F::default(),
                         HintingOptions::None,
                         RasterizationOptions::GrayscaleAa,
                     )
@@ -156,13 +150,13 @@ impl SimpleSurface {
                     "glyph {}, bounds {:?}, {},{}",
                     glyph_id, bounds, glyph_x, glyph_y
                 );
-                if !bounds.is_empty() {
-                    let origin_adj = bounds.origin.to_f32();
-                    let neg_origin = Point2D::new(-origin_adj.x, -origin_adj.y);
+                if bounds.width() > 0 && bounds.height() > 0 {
+                    let origin_adj = bounds.origin().to_f32();
+                    let neg_origin = -origin_adj;
                     let mut canvas = Canvas::new(
                         // Not sure why we need to add the extra pixel of height, probably a rounding isssue.
                         // In any case, seems to get the job done (with CoreText rendering, anyway).
-                        &Size2D::new(bounds.size.width as u32, 1 + bounds.size.height as u32),
+                        bounds.size() + vec2i(0, 1),
                         Format::A8,
                     );
                     font.font
@@ -171,16 +165,15 @@ impl SimpleSurface {
                             glyph_id,
                             // TODO(font-kit): this is missing anamorphic and skew features
                             size,
-                            &FontTransform::identity(),
-                            &neg_origin,
+                            Transform2F::from_translation(neg_origin),
                             HintingOptions::None,
                             RasterizationOptions::GrayscaleAa,
                         )
                         .unwrap();
                     self.paint_from_canvas(
                         &canvas,
-                        glyph_x + bounds.origin.x,
-                        glyph_y - bounds.origin.y,
+                        glyph_x + bounds.origin_x(),
+                        glyph_y - bounds.origin_y(),
                     );
                 }
                 println!("glyph {} @ {:?}", glyph.glyph_id, glyph.offset);
@@ -231,20 +224,18 @@ fn main() {
         font.raster_bounds(
             glyph_id,
             32.0,
-            &FontTransform::identity(),
-            &Point2D::zero(),
+            Transform2F::default(),
             HintingOptions::None,
             RasterizationOptions::GrayscaleAa
         )
     );
-    let mut canvas = Canvas::new(&Size2D::new(32, 32), Format::A8);
+    let mut canvas = Canvas::new(vec2i(32, 32), Format::A8);
     font.rasterize_glyph(
         &mut canvas,
         glyph_id,
         // TODO(font-kit): this is missing anamorphic and skew features
         style.size,
-        &FontTransform::identity(),
-        &Point2D::zero(),
+        Transform2F::default(),
         HintingOptions::None,
         RasterizationOptions::GrayscaleAa,
     )
@@ -254,8 +245,7 @@ fn main() {
         &mut canvas,
         glyph_id,
         style.size,
-        &FontTransform::identity(),
-        &Point2D::new(16.0, 16.0),
+        Transform2F::from_translation(vec2f(16.0, 16.0)),
         HintingOptions::None,
         RasterizationOptions::GrayscaleAa,
     )

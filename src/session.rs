@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use harfbuzz::sys::{hb_script_t, HB_SCRIPT_COMMON, HB_SCRIPT_INHERITED, HB_SCRIPT_UNKNOWN};
 
-use euclid::default::Vector2D;
+use pathfinder_geometry::vector::Vector2F;
 
 use crate::hb_layout::layout_fragment;
 use crate::unicode_funcs::lookup_script;
@@ -23,7 +23,7 @@ pub(crate) struct LayoutFragment {
     // Length of substring covered by this fragment.
     pub(crate) substr_len: usize,
     pub(crate) script: hb_script_t,
-    pub(crate) advance: Vector2D<f32>,
+    pub(crate) advance: Vector2F,
     pub(crate) glyphs: Vec<FragmentGlyph>,
     pub(crate) font: FontRef,
 }
@@ -35,32 +35,32 @@ pub(crate) struct LayoutFragment {
 pub(crate) struct FragmentGlyph {
     pub cluster: u32,
     pub glyph_id: u32,
-    pub offset: Vector2D<f32>,
-    pub advance: Vector2D<f32>,
+    pub offset: Vector2F,
+    pub advance: Vector2F,
     pub unsafe_to_break: bool,
 }
 
 pub struct LayoutRangeIter<'a> {
     fragments: &'a [LayoutFragment],
-    offset: Vector2D<f32>,
+    offset: Vector2F,
     fragment_ix: usize,
 }
 
 pub struct LayoutRun<'a> {
     // This should potentially be in fragment (would make it easier to binary search)
-    offset: Vector2D<f32>,
+    offset: Vector2F,
     fragment: &'a LayoutFragment,
 }
 
 pub struct RunIter<'a> {
-    offset: Vector2D<f32>,
+    offset: Vector2F,
     fragment: &'a LayoutFragment,
     glyph_ix: usize,
 }
 
 pub struct GlyphInfo {
     pub glyph_id: u32,
-    pub offset: Vector2D<f32>,
+    pub offset: Vector2F,
 }
 
 impl<S: AsRef<str>> LayoutSession<S> {
@@ -96,7 +96,7 @@ impl<S: AsRef<str>> LayoutSession<S> {
     /// not keep it.
     pub fn iter_all(&self) -> LayoutRangeIter {
         LayoutRangeIter {
-            offset: Vector2D::zero(),
+            offset: Vector2F::zero(),
             fragments: &self.fragments,
             fragment_ix: 0,
         }
@@ -137,7 +137,7 @@ impl<S: AsRef<str>> LayoutSession<S> {
             fragment_ix += 1;
         }
         LayoutRangeIter {
-            offset: Vector2D::zero(),
+            offset: Vector2F::zero(),
             fragments: &self.substr_fragments,
             fragment_ix: 0,
         }
