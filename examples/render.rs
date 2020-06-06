@@ -10,7 +10,7 @@ use font_kit::hinting::HintingOptions;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
-use skribo::{FontCollection, FontFamily, Layout, LayoutSession, TextStyle};
+use skribo::{FontCollection, FontFamily, LayoutSession, TextStyle};
 
 use pathfinder_geometry::transform2d::Transform2F;
 use pathfinder_geometry::vector::{vec2f, vec2i};
@@ -22,20 +22,21 @@ const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "DevanagariUI";
 #[cfg(target_os = "linux")]
 const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "NotoSerifDevanagari";
 
+/// A simple drawing surface, just because it's easier to implement such things
+/// directly than pull in dependencies for it.
 struct SimpleSurface {
     width: usize,
     height: usize,
     pixels: Vec<u8>,
 }
 
+/// For a given color channel, mix the values additively (I assume).
 fn composite(a: u8, b: u8) -> u8 {
     let y = ((255 - a) as u16) * ((255 - b) as u16);
     let y = (y + (y >> 8) + 0x80) >> 8; // fast approx to round(y / 255)
     255 - (y as u8)
 }
 
-// A simple drawing surface, just because it's easier to implement such things
-// directly than pull in dependencies for it.
 impl SimpleSurface {
     fn new(width: usize, height: usize) -> SimpleSurface {
         let pixels = vec![0; width * height];
@@ -62,6 +63,7 @@ impl SimpleSurface {
         }
     }
 
+    /// Write the output as a "portable gray map" (pgm) file.
     fn write_pgm(&self, filename: &str) -> Result<(), std::io::Error> {
         let mut f = File::create(filename)?;
         write!(f, "P5\n{} {}\n255\n", self.width, self.height)?;
@@ -252,9 +254,7 @@ fn main() {
 
     let mut args = std::env::args();
     args.next();
-    let text = args
-        .next()
-        .unwrap_or("Hello हिन्दी".to_string());
+    let text = args.next().unwrap_or("Hello हिन्दी".to_string());
     //let layout = make_layout(&style, &font, &text);
     let collection = make_collection();
     /*

@@ -10,6 +10,7 @@ use crate::hb_layout::layout_fragment;
 use crate::unicode_funcs::lookup_script;
 use crate::{FontCollection, FontRef, TextStyle};
 
+/// This is currently the main way to use this crate.
 pub struct LayoutSession<S: AsRef<str>> {
     text: S,
     style: TextStyle,
@@ -19,56 +20,8 @@ pub struct LayoutSession<S: AsRef<str>> {
     substr_fragments: Vec<LayoutFragment>,
 }
 
-pub(crate) struct LayoutFragment {
-    // Length of substring covered by this fragment.
-    pub(crate) substr_len: usize,
-    pub(crate) script: hb_script_t,
-    pub(crate) advance: Vector2F,
-    pub(crate) glyphs: Vec<FragmentGlyph>,
-    pub(crate) font: FontRef,
-}
-
-// This should probably be renamed "glyph".
-//
-// Discussion topic: this is so similar to hb_glyph_info_t, maybe we
-// should just use that.
-pub(crate) struct FragmentGlyph {
-    pub cluster: u32,
-    pub glyph_id: u32,
-    pub offset: Vector2F,
-    pub advance: Vector2F,
-    pub unsafe_to_break: bool,
-}
-
-pub struct LayoutRangeIter<'a> {
-    fragments: &'a [LayoutFragment],
-    offset: Vector2F,
-    fragment_ix: usize,
-}
-
-pub struct LayoutRun<'a> {
-    // This should potentially be in fragment (would make it easier to binary search)
-    offset: Vector2F,
-    fragment: &'a LayoutFragment,
-}
-
-pub struct RunIter<'a> {
-    offset: Vector2F,
-    fragment: &'a LayoutFragment,
-    glyph_ix: usize,
-}
-
-pub struct GlyphInfo {
-    pub glyph_id: u32,
-    pub offset: Vector2F,
-}
-
 impl<S: AsRef<str>> LayoutSession<S> {
-    pub fn create(
-        text: S,
-        style: &TextStyle,
-        collection: &FontCollection,
-    ) -> LayoutSession<S> {
+    pub fn create(text: S, style: &TextStyle, collection: &FontCollection) -> LayoutSession<S> {
         let mut i = 0;
         let mut fragments = Vec::new();
         while i < text.as_ref().len() {
@@ -144,6 +97,21 @@ impl<S: AsRef<str>> LayoutSession<S> {
     }
 }
 
+pub(crate) struct LayoutFragment {
+    // Length of substring covered by this fragment.
+    pub(crate) substr_len: usize,
+    pub(crate) script: hb_script_t,
+    pub(crate) advance: Vector2F,
+    pub(crate) glyphs: Vec<GlyphInfo>,
+    pub(crate) font: FontRef,
+}
+
+pub struct LayoutRangeIter<'a> {
+    fragments: &'a [LayoutFragment],
+    offset: Vector2F,
+    fragment_ix: usize,
+}
+
 impl<'a> Iterator for LayoutRangeIter<'a> {
     type Item = LayoutRun<'a>;
 
@@ -160,6 +128,24 @@ impl<'a> Iterator for LayoutRangeIter<'a> {
     }
 }
 
+// This should probably be renamed "glyph".
+//
+// Discussion topic: this is so similar to hb_glyph_info_t, maybe we
+// should just use that.
+pub(crate) struct GlyphInfo {
+    pub cluster: u32,
+    pub glyph_id: u32,
+    pub offset: Vector2F,
+    pub advance: Vector2F,
+    pub unsafe_to_break: bool,
+}
+
+pub struct LayoutRun<'a> {
+    // This should potentially be in fragment (would make it easier to binary search)
+    offset: Vector2F,
+    fragment: &'a LayoutFragment,
+}
+
 impl<'a> LayoutRun<'a> {
     pub fn font(&self) -> &FontRef {
         &self.fragment.font
@@ -174,21 +160,35 @@ impl<'a> LayoutRun<'a> {
     }
 }
 
-impl<'a> Iterator for RunIter<'a> {
-    type Item = GlyphInfo;
+pub struct RunIter<'a> {
+    offset: Vector2F,
+    fragment: &'a LayoutFragment,
+    glyph_ix: usize,
+}
 
-    fn next(&mut self) -> Option<GlyphInfo> {
+impl<'a> Iterator for RunIter<'a> {
+    type Item = Glyph;
+
+    fn next(&mut self) -> Option<Glyph> {
         if self.glyph_ix == self.fragment.glyphs.len() {
             None
         } else {
             let glyph = &self.fragment.glyphs[self.glyph_ix];
             self.glyph_ix += 1;
-            Some(GlyphInfo {
+            Some(Glyph {
                 glyph_id: glyph.glyph_id,
                 offset: self.offset + glyph.offset,
             })
         }
     }
+}
+
+/// A glyph identifier and location.
+///
+/// The main output of this library.
+pub struct Glyph {
+    pub glyph_id: u32,
+    pub offset: Vector2F,
 }
 
 /// Figure out the script for the initial part of the buffer, and also

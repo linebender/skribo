@@ -2253,6 +2253,10 @@ pub const CANONICAL_DECOMP_VAL: [(u32, u32); 2060] = [
     (0x9f3b, 0x0),
     (0x2a600, 0x0),
 ];
+
+/// Intervals of unicode characters corresponding to different blocks of scripts.
+///
+/// Lookup the script name in
 // Warning: script Elymaic not known by HarfBuzz
 // Warning: script Nandinagari not known by HarfBuzz
 // Warning: script Nyiakeng_Puachue_Hmong not known by HarfBuzz
@@ -4019,6 +4023,9 @@ pub const SCRIPT_VAL: [hb_script_t; 879] = [
     HB_SCRIPT_COMMON,
     HB_SCRIPT_INHERITED,
 ];
+
+/// For a given code in this table, look up the same index in MIRROR_VAL to get the mirrored
+/// version of the character, e.g. '(' goes to ')'.
 pub const MIRROR_KEY: [u32; 420] = [
     0x28,   // -> 0x29
     0x29,   // -> 0x28
@@ -4441,6 +4448,8 @@ pub const MIRROR_KEY: [u32; 420] = [
     0xff62, // -> 0xff63
     0xff63, // -> 0xff62
 ];
+
+/// See `MIRROR_KEY`.
 pub const MIRROR_VAL: [u32; 420] = [
     0x29,   // <- 0x28
     0x28,   // <- 0x29

@@ -1,22 +1,20 @@
 //! A HarfBuzz shaping back-end.
 
-use pathfinder_geometry::vector::{Vector2F, vec2i};
+use pathfinder_geometry::vector::{vec2i, Vector2F};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 use harfbuzz::sys::{
-    hb_buffer_get_glyph_infos,
-    hb_buffer_get_glyph_positions, hb_face_create, hb_face_destroy, hb_face_reference, hb_face_t,
-    hb_font_create, hb_font_destroy, hb_position_t, hb_shape,
+    hb_buffer_get_glyph_infos, hb_buffer_get_glyph_positions, hb_font_create, hb_font_destroy,
+    hb_position_t, hb_shape,
 };
-use harfbuzz::{Blob, Buffer, Direction, Language};
 use harfbuzz::sys::{
-    hb_glyph_info_get_glyph_flags, hb_script_t, HB_GLYPH_FLAG_UNSAFE_TO_BREAK,
-    HB_SCRIPT_DEVANAGARI,
+    hb_glyph_info_get_glyph_flags, hb_script_t, HB_GLYPH_FLAG_UNSAFE_TO_BREAK, HB_SCRIPT_DEVANAGARI,
 };
+use harfbuzz::{self as hb, Owned};
 
 use crate::collection::FontId;
-use crate::session::{FragmentGlyph, LayoutFragment};
+use crate::session::{GlyphInfo, LayoutFragment};
 use crate::unicode_funcs::install_unicode_funcs;
 use crate::{FontRef, Glyph, Layout, TextStyle};
 
@@ -24,53 +22,32 @@ thread_local! {
     static HB_THREAD_DATA: RefCell<HbThreadData> = RefCell::new(HbThreadData::new());
 }
 
-// Per-thread data for HarfBuzz.
+/// Per-thread data for HarfBuzz.
+///
+/// Fonts are cached by HarfBuzz, and this object manages the ownership and lifecycle of the cached
+/// objects.
 struct HbThreadData {
-    hb_face_cache: HashMap<FontId, HbFace>,
+    hb_face_cache: HashMap<FontId, hb::Face<Owned>>,
 }
 
 impl HbThreadData {
+    /// Create an empty cache.
     fn new() -> HbThreadData {
-        HbThreadData { hb_face_cache: HashMap::new() }
-    }
-
-    fn create_hb_face_for_font(&mut self, font: &FontRef) -> HbFace {
-        (*self.hb_face_cache.entry(FontId::from_font(font)).or_insert_with(|| {
-            HbFace::new(font)
-        })).clone()
-    }
-}
-
-pub(crate) struct HbFace {
-    hb_face: *mut hb_face_t,
-}
-
-impl HbFace {
-    fn new(font: &FontRef) -> HbFace {
-        let data = font.font.copy_font_data().expect("font data unavailable");
-        let blob = Blob::new_from_arc_vec(data);
-        unsafe {
-            let hb_face = hb_face_create(blob.as_raw(), 0);
-            HbFace { hb_face }
+        HbThreadData {
+            hb_face_cache: HashMap::new(),
         }
     }
-}
 
-impl Clone for HbFace {
-    fn clone(&self) -> HbFace {
-        unsafe {
-            HbFace {
-                hb_face: hb_face_reference(self.hb_face),
-            }
-        }
-    }
-}
-
-impl Drop for HbFace {
-    fn drop(&mut self) {
-        unsafe {
-            hb_face_destroy(self.hb_face);
-        }
+    /// Add the given font to this cache.
+    fn create_hb_face_for_font(&mut self, font: &FontRef) -> hb::Face<Owned> {
+        (*self
+            .hb_face_cache
+            .entry(FontId::from_font(font))
+            .or_insert_with(|| {
+                let data = font.font.copy_font_data().expect("font data unavailable");
+                hb::Face::from(data)
+            }))
+        .clone()
     }
 }
 
@@ -78,21 +55,21 @@ impl Drop for HbFace {
 pub fn layout_run(style: &TextStyle, font: &FontRef, text: &str) -> Layout {
     HB_THREAD_DATA.with(|hb_thread_data| {
         let mut hb_thread_data = hb_thread_data.borrow_mut();
-        let mut b = Buffer::new();
+        let mut b = hb::Buffer::new();
         install_unicode_funcs(&mut b);
         b.add_str(text);
-        b.set_direction(Direction::LTR);
+        b.set_direction(hb::Direction::LTR);
         // TODO: set this based on detected script
         b.set_script(HB_SCRIPT_DEVANAGARI);
-        b.set_language(Language::from_string("en_US"));
+        b.set_language(hb::Language::from_string("en_US"));
         let hb_face = hb_thread_data.create_hb_face_for_font(font);
         unsafe {
-            let hb_font = hb_font_create(hb_face.hb_face);
+            let hb_font = hb_font_create(hb_face.as_raw());
             hb_shape(hb_font, b.as_ptr(), std::ptr::null(), 0);
             hb_font_destroy(hb_font);
             let mut n_glyph = 0;
             let glyph_infos = hb_buffer_get_glyph_infos(b.as_ptr(), &mut n_glyph);
-            debug!("number of glyphs: {}", n_glyph);
+            log::debug!("number of glyphs: {}", n_glyph);
             let glyph_infos = std::slice::from_raw_parts(glyph_infos, n_glyph as usize);
             let mut n_glyph_pos = 0;
             let glyph_positions = hb_buffer_get_glyph_positions(b.as_ptr(), &mut n_glyph_pos);
@@ -123,26 +100,31 @@ pub fn layout_run(style: &TextStyle, font: &FontRef, text: &str) -> Layout {
     })
 }
 
+fn hb_face_from_font(font: FontRef) -> hb::Face<Owned> {
+    let data = font.font.copy_font_data().expect("font data unavailable");
+    hb::Face::from(data)
+}
+
 pub(crate) fn layout_fragment(
     style: &TextStyle,
     font: &FontRef,
     script: hb_script_t,
     text: &str,
 ) -> LayoutFragment {
-    let mut b = Buffer::new();
+    let mut b = hb::Buffer::new();
     install_unicode_funcs(&mut b);
     b.add_str(text);
-    b.set_direction(Direction::LTR);
+    b.set_direction(hb::Direction::LTR);
     b.set_script(script);
-    b.set_language(Language::from_string("en_US"));
-    let hb_face = HbFace::new(font);
+    b.set_language(hb::Language::from_string("en_US"));
+    let hb_face = hb_face_from_font(font.clone());
     unsafe {
-        let hb_font = hb_font_create(hb_face.hb_face);
+        let hb_font = hb_font_create(hb_face.as_raw());
         hb_shape(hb_font, b.as_ptr(), std::ptr::null(), 0);
         hb_font_destroy(hb_font);
         let mut n_glyph = 0;
         let glyph_infos = hb_buffer_get_glyph_infos(b.as_ptr(), &mut n_glyph);
-        trace!("number of glyphs: {}", n_glyph);
+        log::trace!("number of glyphs: {}", n_glyph);
         let glyph_infos = std::slice::from_raw_parts(glyph_infos, n_glyph as usize);
         let mut n_glyph_pos = 0;
         let glyph_positions = hb_buffer_get_glyph_positions(b.as_ptr(), &mut n_glyph_pos);
@@ -157,11 +139,14 @@ pub(crate) fn layout_fragment(
             let offset = vec2i(pos.x_offset, pos.y_offset).to_f32() * scale;
             let flags = hb_glyph_info_get_glyph_flags(glyph);
             let unsafe_to_break = flags & HB_GLYPH_FLAG_UNSAFE_TO_BREAK != 0;
-            trace!(
+            log::trace!(
                 "{:?} {:?} {} {}",
-                glyph.codepoint, (pos.x_offset, pos.y_offset), glyph.cluster, unsafe_to_break
+                glyph.codepoint,
+                (pos.x_offset, pos.y_offset),
+                glyph.cluster,
+                unsafe_to_break
             );
-            let g = FragmentGlyph {
+            let g = GlyphInfo {
                 cluster: glyph.cluster,
                 advance: adv_f,
                 glyph_id: glyph.codepoint,
