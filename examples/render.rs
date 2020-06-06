@@ -4,11 +4,15 @@ use std::fs::File;
 use std::io::Write;
 use std::ops::Range;
 
-use font_kit::canvas::{Canvas, Format, RasterizationOptions};
-use font_kit::family_name::FamilyName;
-use font_kit::hinting::HintingOptions;
-use font_kit::properties::Properties;
-use font_kit::source::SystemSource;
+use font_kit::{
+    canvas::{Canvas, Format, RasterizationOptions},
+    error::SelectionError,
+    family_name::FamilyName,
+    hinting::HintingOptions,
+    loaders::default::Font,
+    properties::{Properties, Stretch, Style, Weight},
+    source::{Source, SystemSource},
+};
 
 use skribo::{FontCollection, FontFamily, Layout, LayoutSession, TextStyle};
 
@@ -19,23 +23,22 @@ use pathfinder_geometry::vector::{vec2f, vec2i};
 const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "NirmalaUI";
 #[cfg(target_os = "macos")]
 const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "DevanagariUI";
-#[cfg(target_os = "linux")]
-const DEVANAGARI_FONT_POSTSCRIPT_NAME: &str = "NotoSerifDevanagari";
 
+/// A simple drawing surface, just because it's easier to implement such things
+/// directly than pull in dependencies for it.
 struct SimpleSurface {
     width: usize,
     height: usize,
     pixels: Vec<u8>,
 }
 
+/// For a given color channel, mix the values additively (I assume).
 fn composite(a: u8, b: u8) -> u8 {
     let y = ((255 - a) as u16) * ((255 - b) as u16);
     let y = (y + (y >> 8) + 0x80) >> 8; // fast approx to round(y / 255)
     255 - (y as u8)
 }
 
-// A simple drawing surface, just because it's easier to implement such things
-// directly than pull in dependencies for it.
 impl SimpleSurface {
     fn new(width: usize, height: usize) -> SimpleSurface {
         let pixels = vec![0; width * height];
@@ -62,6 +65,7 @@ impl SimpleSurface {
         }
     }
 
+    /// Write the output as a "portable gray map" (pgm) file.
     fn write_pgm(&self, filename: &str) -> Result<(), std::io::Error> {
         let mut f = File::create(filename)?;
         write!(f, "P5\n{} {}\n255\n", self.width, self.height)?;
@@ -191,14 +195,32 @@ fn make_collection() -> FontCollection {
         .unwrap();
     collection.add_family(FontFamily::new_from_font(font));
 
-    let font = source
-        .select_by_postscript_name(DEVANAGARI_FONT_POSTSCRIPT_NAME)
-        .expect("failed to select Devanagari font")
-        .load()
-        .unwrap();
+    let font = get_devanagari(&source).expect("failed to select Devanagari font");
     collection.add_family(FontFamily::new_from_font(font));
 
     collection
+}
+
+#[cfg(target_os = "linux")]
+fn get_devanagari(source: &impl Source) -> Result<Font, anyhow::Error> {
+    let family = source.select_family_by_name("Noto Serif Devanagari")?;
+    for handle in family.fonts() {
+        let font = handle.load()?;
+        let props = font.properties();
+        if matches!(props.style, Style::Normal)
+            && props.weight == Weight::NORMAL
+            && props.stretch == Stretch::NORMAL
+        {
+            return Ok(font);
+        }
+    }
+    Err(SelectionError::NotFound.into())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn get_devanagari(source: &impl Source) -> Result<Font, anyhow::Error> {
+    let handle = source.select_by_postscript_name(DEVANAGARI_FONT_POSTSCRIPT_NAME)?;
+    Ok(handle.load()?)
 }
 
 fn main() {
@@ -211,7 +233,7 @@ fn main() {
     let data = font.copy_font_data();
     println!("font data: {:?} bytes", data.map(|d| d.len()));
 
-    let style = TextStyle { size: 32.0 };
+    let style = TextStyle::from_size(32.0);
     let glyph_id = font.glyph_for_char('O').unwrap();
     println!("glyph id = {}", glyph_id);
     println!(
@@ -252,9 +274,7 @@ fn main() {
 
     let mut args = std::env::args();
     args.next();
-    let text = args
-        .next()
-        .unwrap_or("Hello हिन्दी".to_string());
+    let text = args.next().unwrap_or("Hello हिन्दी".to_string());
     //let layout = make_layout(&style, &font, &text);
     let collection = make_collection();
     /*
