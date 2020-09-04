@@ -49,7 +49,6 @@ impl SimpleSurface {
     fn paint_from_canvas(&mut self, canvas: &Canvas, x: i32, y: i32) {
         let (cw, ch) = (canvas.size.x(), canvas.size.y());
         let (w, h) = (self.width as i32, self.height as i32);
-        let y = y - ch;
         let xmin = 0.max(-x);
         let xmax = cw.min(w - x);
         let ymin = 0.max(-y);
@@ -115,7 +114,7 @@ impl SimpleSurface {
                 self.paint_from_canvas(
                     &canvas,
                     glyph_x + bounds.origin_x(),
-                    glyph_y - bounds.origin_y(),
+                    glyph_y + bounds.origin_y(),
                 );
             }
         }
@@ -173,7 +172,7 @@ impl SimpleSurface {
                     self.paint_from_canvas(
                         &canvas,
                         glyph_x + bounds.origin_x(),
-                        glyph_y - bounds.origin_y(),
+                        glyph_y + bounds.origin_y(),
                     );
                 }
                 println!("glyph {} @ {:?}", glyph.glyph_id, glyph.offset);
