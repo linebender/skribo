@@ -264,5 +264,9 @@ fn main() {
     let mut layout = LayoutSession::create(&text, &style, &collection);
     let mut surface = SimpleSurface::new(200, 50);
     surface.paint_layout_session(&mut layout, 0, 35, 0..text.len());
+    for i in 0..text.len() {
+        println!("offset {} [{:2x}]: {}", i, text.as_bytes()[i], layout.cumulative_advance(i));
+    }
+    println!("offset {}     : {}", text.len(), layout.cumulative_advance(text.len()));
     surface.write_pgm("out.pgm").unwrap();
 }

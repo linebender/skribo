@@ -10,6 +10,14 @@ use crate::hb_layout::layout_fragment;
 use crate::unicode_funcs::lookup_script;
 use crate::{FontCollection, FontRef, TextStyle};
 
+/// The unit of measurement for advance width.
+///
+/// We want it to be small, because we store one per UTF-8 code unit.
+///
+/// It's a good discussion question whether this should be a 2D vector,
+/// but vertical text is out of scope for now.
+pub type AdvanceWidth = f32;
+
 pub struct LayoutSession<S: AsRef<str>> {
     text: S,
     style: TextStyle,
@@ -17,6 +25,12 @@ pub struct LayoutSession<S: AsRef<str>> {
 
     // A separate layout for the substring if needed.
     substr_fragments: Vec<LayoutFragment>,
+
+    /// The cumulative advance per utf-8 code unit.
+    ///
+    /// This is used for fast (but possibly inaccurate) width measurement,
+    /// and likely hit testing as well.
+    advances: Vec<AdvanceWidth>,
 }
 
 pub(crate) struct LayoutFragment {
@@ -81,12 +95,14 @@ impl<S: AsRef<str>> LayoutSession<S> {
             i += script_len;
         }
         let substr_fragments = Vec::new();
+        let advances = compute_advances(text.as_ref(), &fragments);
         LayoutSession {
             text,
             // Does this clone mean we should take style arg by-move?
             style: style.clone(),
             fragments,
             substr_fragments,
+            advances,
         }
     }
 
@@ -141,6 +157,14 @@ impl<S: AsRef<str>> LayoutSession<S> {
             fragments: &self.substr_fragments,
             fragment_ix: 0,
         }
+    }
+
+    /// Get the cumulative advance for a string offset.
+    ///
+    /// The string offset must be less than or equal to the length of the original
+    /// string.
+    pub fn cumulative_advance(&self, ix: usize) -> AdvanceWidth {
+        self.advances[ix]
     }
 }
 
@@ -225,4 +249,30 @@ fn debug_script_runs(text: &str) {
         println!("text {:?} script {:x}", &text_substr[..len], script);
         text_substr = &text_substr[len..];
     }
+}
+
+/// Compute the cumulative advances for the layout.
+///
+/// These are currently computed at cluster granularity. Something
+/// to seriously consider is apportioning cluster widths if there
+/// are multiple grapheme clusters that make up the cluster.
+fn compute_advances(text: &str, fragments: &[LayoutFragment]) -> Vec<AdvanceWidth> {
+    let mut result = Vec::with_capacity(text.len() + 1);
+    let mut last_adv = 0.0;
+    let mut next_adv = 0.0;
+    let mut str_start = 0;
+    for fragment in fragments {
+        for glyph in &fragment.glyphs {
+            let cluster = str_start + (glyph.cluster as usize);
+            if cluster > result.len() {
+                result.resize(cluster, last_adv);
+                last_adv = next_adv;
+            }
+            next_adv += glyph.advance.x();
+        }
+        str_start += fragment.substr_len;
+    }
+    result.resize(str_start, last_adv);
+    result.push(next_adv);
+    result
 }
