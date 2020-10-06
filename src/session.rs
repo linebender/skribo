@@ -163,8 +163,22 @@ impl<S: AsRef<str>> LayoutSession<S> {
     ///
     /// The string offset must be less than or equal to the length of the original
     /// string.
+    ///
+    /// TODO: this should probably take a range.
     pub fn cumulative_advance(&self, ix: usize) -> AdvanceWidth {
         self.advances[ix]
+    }
+
+    /// The length (in utf-8 code units) of the text.
+    ///
+    /// Provided as a convenience.
+    pub fn text_len(&self) -> usize {
+        self.text.as_ref().len()
+    }
+
+    /// The total advance width of the layout.
+    pub fn width(&self) -> f64 {
+        self.cumulative_advance(self.text_len()).into()
     }
 }
 
