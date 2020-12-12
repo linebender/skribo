@@ -27,15 +27,17 @@
 //!    same as a picture.
 //!  - *glyph* - A symbol from a collection of symbols with some semantic meaning. The collection
 //!    could be a script (like latin - `ABCDE....abcde...`, or it could be from the set of
-//!    mathemtatical symbols (`+-×÷`). In the case of languages, another word more commonly used to
+//!    mathematical symbols (`+−×÷`). In the case of languages, another word more commonly used to
 //!    mean *glyph* is *letter*, but "letter" can also mean grapheme (because in latin script all
 //!    of the meanings are equivalent, they are often used interchangeably).
 //!  - *font* - A set of glyphs that can be printed to paper or a screen. Sometimes the word
 //!    font is used to mean typeface, and this can cause some confusion. In computing, a font can
 //!    also refer to 1 or more font descriptions, which contain the information required to draw
 //!    glyphs. These descriptions could be stored in a file on disk, or in memory, or somewhere
-//!    else. Popular formats include "OpenType/TrueType", "Bitmap", "PostScript", "Web Open Font
-//!    Format (WOFF)".
+//!    else. "OpenType" has emerged as a consensus standard for the font file format, but
+//!    tranditionally other formats existed, including "TrueType", various bitmap formats, and
+//!    "PostScript". Container formats also exist for compression, like the "Web Open Font Format"
+//!    (WOFF, WOFF2).
 //!  - *typeface* - A collection of fonts that all share the same "look", but have different sizes,
 //!    weights, and styles.
 //!  - *size* An indication of the size of a font. A font's size is often given as the width of a
@@ -43,20 +45,19 @@
 //!    have a fixed physical width. To see this think about the fact that a 14" screen with the
 //!    same number of pixels as a 21" screen will not have pixels of the same size.
 //!  - *weight* The thickness of glyphs in the font. Thicker weighted fonts are known as *bold*
-//!    whilst thinner weighted fonts are sometimes know as *light*. Weight can also be expressed as
+//!    whilst thinner weighted fonts are sometimes known as *light*. Weight can also be expressed as
 //!    a number.
-//!  - *style* - Variations of a specific typeface other than weight and size. Examples include
-//!    slanting text (*italics*) or using small upper case letters instead of lower case letters
-//!    (`small-caps` in CSS).
-//!  - *character* - Characters or `char`s can mean many things, but outside and within computer
-//!    typesetting. The wort character is often used as a lay term for grapheme, and one could
-//!    argue that given their relative usage that this is character's canonical meaning. In the `c`
-//!    programming language, a `char` is almost always just a name for a byte of data; this meaing
-//!    comes from a time when computer software engineers only considered English, and so a byte
-//!    was enough space to encode all possible glyphs.  Within rust, characters are specific
-//!    unicode code points, which are combined into graphemes. They don't really have any semantic
-//!    meaning on their own, although many characters consist of 1 grapheme, and so they are
-//!    sometimes mistakenly thought of as equivalent.
+//!  - *style* - Variations of a specific typeface other than weight and size. Examples include a
+//!    more rounded, slanted form (*italic*), simply slanting text (*oblique*) or using small upper
+//!    case letters instead of lower case letters (`small-caps` in CSS). *Italic* is sometimes
+//!    synthesized using an affine transformation to affect a slant.
+//!  - *character* - The word "character" is often used informally, but is ambiguous and has no
+//!    clear formal meaning. In Rust, the `char` type actually represents a unicode code point. In
+//!    simple contexts (such as ASCII-only text), a "character" can be considered identical to a
+//!    code point, but in a general context it should generally be avoided if precise meaning is
+//!    desired. (The truth is slightly more nuanced than even this: `char` in Rust is actually a
+//!    [unicode scalar](https://stackoverflow.com/questions/48465265/what-is-the-difference-between-unicode-code-points-and-unicode-scalars),
+//!    but it's usually OK to ignore this distinction.
 //!  - *unicode* - When computers were first created in America, they all used the latin alphabet,
 //!    which fits into a byte. The *ASCII* encoding was developed to store latin characters in a
 //!    byte of data. As other countries began to use computers, they created their own encodings to
@@ -74,12 +75,19 @@
 //!    bytes (16 bits) as its smallest size.
 //!  - *grapheme, grapheme cluster* - Outside of computer typesetting, graphemes can have multiple
 //!    meanings in linguistics (see wikipedia). Within computer typesetting (and unicode in
-//!    particular), a grapheme cluster (called grapheme in the rest of these docs) can be thought
-//!    of as the conceptual version of a glyph. One exception to this is Han unification
-//!    (see below). It's important to note that a grapheme cluster may be 1 or more unicode
-//!    characters.  An example of a multi-character grapheme cluster is a rainbow flag (`U+1F3F3
-//!    (white flag), U+200D (zwj), U+1F308 (rainbow)`) which produces a single rainbow flag glyph.
-//!  - *script* - A set of graphemes that are used together to achieve written communcation.
+//!    particular), a grapheme cluster (also sometimes simplified to grapheme despite the ambiguity
+//!    this introduces) is a collection of code points whose meaning is different to those code
+//!    points in isolation. It is often, but by no means always, represented by a single glyph.
+//!    Exceptions to this include a rainbow flag (`U+1F3F3 (white flag), U+200D (zwj), U+1F308
+//!    (rainbow)`) which produces a single rainbow flag glyph, "ﬁ", which is 1 glyph but 2 grapheme
+//!    clusters, and "न्दी", which is 1 grapheme cluster but often 3 glyphs. In Han unification (see
+//!    below), the same grapheme cluster may be represented by different glyphs depending on
+//!    *locale*.
+//!  - *script* - TODO write this using https://unicode.org/reports/tr24/, and UAX
+//!    (https://github.com/linebender/skribo/pull/24),
+//!    also explore the differences and similarities between scripts and writing systems:
+//!    https://en.wikipedia.org/wiki/Script_(Unicode) and
+//!    https://en.wikipedia.org/wiki/Writing_system.
 //!  - *language* - A context for deriving meaning from a script. Collections of graphemes from a
 //!    script will have different meanings in different languages, for example the word "pain"
 //!    means different things in English and French ("bread" in french).
@@ -88,24 +96,26 @@
 //!    (as is the case in Hebrew, for example), and which varaint of Han characters to use.
 //!    Non-text locale information includes date format and timezone.
 //!  - *Han unification, CJK* - A number of Asian languages derive from ancient Chinese. The
-//!    acronym CJK expands to Chinese, Japanese, Korean. Traditional Taiwanese also has this
-//!    property, but since Taiwan has now adopted the Latin script it is less of an issue in
-//!    practice. These languages use different glyphs for the same unicode grapheme (the graphemes
-//!    can be thought of as representing ancient Han Chinese).
+//!    acronym CJK expands to Chinese, Japanese, Korean. Traditional Vietnamese also has this
+//!    property, but since Vietnam has now adopted the Latin script it is less of an issue in
+//!    practice. These languages use different glyphs for the same unicode code point (the code
+//!    points themselves can be thought of as representing ancient Han Chinese).
 //!  - *RTL, LTR, BiDi* - Some scripts are read from the right to the left (RTL), the opposite of latin
-//!    which is read left-to-right (LTR). If a span of text contains graphemes from both LTR and
+//!    which is read left-to-right (LTR). If a span of text contains code points from both LTR and
 //!    RTL languages, then multiple directions of text will be used, and this is known as
 //!    bi-directional (BiDi) text. For example, if an english sentence contains a hebrew word, a
 //!    reader would expect that the order of letters in that word to be flipped.
 //!  - *cursive* - todo (text rendering hates you says the word cursive describes the situation
-//!    where the position of a grapheme in a word affects which glyph is used).
-//!  - *font shaping* - The act of selecting particular glyphs to represent graphemes based on
+//!    where the position of text in a word affects which glyph is used).
+//!  - *font shaping* - The act of selecting particular glyphs to represent code points based on
 //!    contextual information. In a number of languages (and in non-language unicode scripts like
-//!    emoji, flags), the actual glyph used to represent a grapheme depends on glyphs surrounding
+//!    emoji, flags), the actual glyphs used to represent text depends on glyphs surrounding
 //!    it. In Indic languages (e.g. Devanagari), graphemes from the same word are joined together,
 //!    and this means that the glyphs used in the middle of a word are different to those at the
 //!    edge, even for the same grapheme. A popular open-source library for converting graphemes to
-//!    glyphs is [*HarfBuzz*](https://harfbuzz.github.io/).
+//!    glyphs is [*HarfBuzz*](https://harfbuzz.github.io/), which has a [good explanation of text
+//!    shaping](https://harfbuzz.github.io/what-is-harfbuzz.html#what-is-text-shaping) in its
+//!    documentation.
 //!  - *rendering* - todo (define this in context as drawing glyphs on a computer, then discuss CPU/GPU,
 //!    vector/rasterized etc.
 //!  - *antialiasing* - todo

@@ -44,9 +44,8 @@ impl fmt::Debug for FontRef {
     }
 }
 
-/// An iterator over `(Range<usize>, &FontRef)` pairs. Use the given font for the given range. When
-/// rendering.
-pub struct Itemizer<'a> {
+/// An iterator of `(Range<usize>, &FontRef)`. Created by [`FontCollection::itemize`].
+pub(crate) struct Itemizer<'a> {
     text: &'a str,
     collection: &'a FontCollection,
     ix: usize,
@@ -67,7 +66,7 @@ impl FontFamily {
         FontFamily { fonts: Vec::new() }
     }
 
-    /// Adda a font to an existing family.
+    /// Add a font to an existing family.
     ///
     /// It is the user's responsibility to check that the coverage of the added font matches those
     /// previously added.
@@ -112,7 +111,20 @@ impl FontCollection {
         self.families.push(family);
     }
 
-    pub fn itemize<'a>(&'a self, text: &'a str) -> Itemizer<'a> {
+    /// Splits the text into single-font runs.
+    ///
+    /// This function splits the text into runs, where each run should be rendered with a single
+    /// font from the collection. The range in the text and a handle to the font to use are
+    /// provided for each run.
+    ///
+    /// For example, take the text "すべての人間は、生まれながらにして自由であり but not all stay
+    /// that way" and assume that we have added 2 fonts to the collection: first *Times Roman*, and
+    /// then *Noto* as a fallback. The Japanese part of the text would fall through to Noto, while
+    /// the English part would be rendered in Times.
+    pub fn itemize<'a>(
+        &'a self,
+        text: &'a str,
+    ) -> impl Iterator<Item = (Range<usize>, &'a FontRef)> + 'a {
         Itemizer {
             text,
             collection: self,
@@ -120,6 +132,8 @@ impl FontCollection {
         }
     }
 
+    /// For a given character, find the first font that supports it.
+    // Question: How are grapheme clusters handled?
     // TODO: other style params, including locale list
     fn choose_font(&self, c: char) -> usize {
         self.families
@@ -130,6 +144,7 @@ impl FontCollection {
 }
 
 // This is the PostScript name of the font. Eventually this should be a unique ID.
+// See related issue in font-kit: https://github.com/servo/font-kit/issues/40
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub(crate) struct FontId {
     postscript_name: String,
