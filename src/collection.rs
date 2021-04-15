@@ -127,7 +127,13 @@ impl<'a> Iterator for Itemizer<'a> {
                 end += c.len_utf8();
             }
             self.ix = end;
-            Some((start..end, &self.collection.families[font_ix].fonts[0]))
+
+            if &self.collection.families.len() >= &1 {
+                Some((start..end, &self.collection.families[font_ix].fonts[0]))
+            }
+            else {
+                None
+            }
         } else {
             None
         }
