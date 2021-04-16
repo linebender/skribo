@@ -1,4 +1,9 @@
 //! The font collection type.
+//!
+//! A font collection is an ordered list of font families, where preference is given to families
+//! earlier in the list. The reason for specifying multiple families is that it may be that a
+//! particular font does not support a particular unicode string, in which case it would be
+//! necessary to try the next font in the list.
 
 use std::fmt;
 use std::ops::Range;
@@ -6,16 +11,27 @@ use std::sync::Arc;
 
 use crate::Font;
 
-/// A collection of fonts
+/// A collection of font families.
+///
+/// See module level docs for a more detailed description of what a `FontCollection` is.
 pub struct FontCollection {
     pub(crate) families: Vec<FontFamily>,
 }
 
+/// A collection of fonts, all of which have the same *typeface*.
+///
+/// The same typeface (e.g. "Times Roman") may have multiple fonts, for different styles (e.g.
+/// normal, italic), weight (e.g. bold, 500) and size. When printing to a screen, size is less of
+/// an issue because text can be scaled (although scaling may affect pixel alignment etc.), but
+/// weight and style require different glyphs.
+///
+/// Fonts added to a font family should support the same set of code points.
 pub struct FontFamily {
     // TODO: multiple weights etc
     pub(crate) fonts: Vec<FontRef>,
 }
 
+/// An immutable shared reference to a font-kit `Font`.
 // Design question: deref to Font?
 #[derive(Clone)]
 pub struct FontRef {
@@ -28,13 +44,15 @@ impl fmt::Debug for FontRef {
     }
 }
 
-pub struct Itemizer<'a> {
+/// An iterator of `(Range<usize>, &FontRef)`. Created by [`FontCollection::itemize`].
+pub(crate) struct Itemizer<'a> {
     text: &'a str,
     collection: &'a FontCollection,
     ix: usize,
 }
 
 impl FontRef {
+    /// Helper method to wrap a font in an `Arc` for `FontRef`.
     pub fn new(font: Font) -> FontRef {
         FontRef {
             font: Arc::new(font),
@@ -43,21 +61,30 @@ impl FontRef {
 }
 
 impl FontFamily {
+    /// Create an empty font family.
     pub fn new() -> FontFamily {
         FontFamily { fonts: Vec::new() }
     }
 
+    /// Add a font to an existing family.
+    ///
+    /// It is the user's responsibility to check that the coverage of the added font matches those
+    /// previously added.
     pub fn add_font(&mut self, font: FontRef) {
         self.fonts.push(font);
     }
 
-    /// Create a collection consisting of a single font
+    /// Create a collection consisting of a single font.
     pub fn new_from_font(font: Font) -> FontFamily {
         let mut result = FontFamily::new();
         result.add_font(FontRef::new(font));
         result
     }
 
+    /// Checks if this font family supports the given code point.
+    ///
+    /// This is implemented by checking the first font in the family, meaning it will not detect if
+    /// later fonts support different code points (see `FontFamily::add_font`).
     pub fn supports_codepoint(&self, c: char) -> bool {
         if let Some(font) = self.fonts.first() {
             let glyph_id = font.font.glyph_for_char(c);
@@ -71,17 +98,33 @@ impl FontFamily {
 }
 
 impl FontCollection {
+    /// Create a new empty `FontCollection`.
     pub fn new() -> FontCollection {
         FontCollection {
             families: Vec::new(),
         }
     }
 
+    /// Append a font family to the collection, such that it will have lower preference than any
+    /// previously added font families.
     pub fn add_family(&mut self, family: FontFamily) {
         self.families.push(family);
     }
 
-    pub fn itemize<'a>(&'a self, text: &'a str) -> Itemizer<'a> {
+    /// Splits the text into single-font runs.
+    ///
+    /// This function splits the text into runs, where each run should be rendered with a single
+    /// font from the collection. The range in the text and a handle to the font to use are
+    /// provided for each run.
+    ///
+    /// For example, take the text "すべての人間は、生まれながらにして自由であり but not all stay
+    /// that way" and assume that we have added 2 fonts to the collection: first *Times Roman*, and
+    /// then *Noto* as a fallback. The Japanese part of the text would fall through to Noto, while
+    /// the English part would be rendered in Times.
+    pub fn itemize<'a>(
+        &'a self,
+        text: &'a str,
+    ) -> impl Iterator<Item = (Range<usize>, &'a FontRef)> + 'a {
         Itemizer {
             text,
             collection: self,
@@ -89,6 +132,8 @@ impl FontCollection {
         }
     }
 
+    /// For a given character, find the first font that supports it.
+    // Question: How are grapheme clusters handled?
     // TODO: other style params, including locale list
     fn choose_font(&self, c: char) -> usize {
         self.families
@@ -99,6 +144,7 @@ impl FontCollection {
 }
 
 // This is the PostScript name of the font. Eventually this should be a unique ID.
+// See related issue in font-kit: https://github.com/servo/font-kit/issues/40
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub(crate) struct FontId {
     postscript_name: String,
@@ -106,7 +152,9 @@ pub(crate) struct FontId {
 
 impl FontId {
     pub(crate) fn from_font(font: &FontRef) -> FontId {
-        FontId { postscript_name: font.font.postscript_name().unwrap_or_default() }
+        FontId {
+            postscript_name: font.font.postscript_name().unwrap_or_default(),
+        }
     }
 }
 
@@ -119,7 +167,7 @@ impl<'a> Iterator for Itemizer<'a> {
         if let Some(c) = chars_iter.next() {
             let mut end = start + c.len_utf8();
             let font_ix = self.collection.choose_font(c);
-            debug!("{}: {}", c, font_ix);
+            log::debug!("{}: {}", c, font_ix);
             while let Some(c) = chars_iter.next() {
                 if font_ix != self.collection.choose_font(c) {
                     break;

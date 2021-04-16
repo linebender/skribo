@@ -17,3 +17,6 @@ font-kit = { version = "0.10"} #, features = ["loader-freetype-default"] }
 pathfinder_geometry = "0.5.1"
 unicode-normalization = "0.1.13"
 log = "0.4.11"
+
+[dev-dependencies]
+anyhow = "1.0.33"
