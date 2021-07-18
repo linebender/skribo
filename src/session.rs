@@ -21,18 +21,18 @@ pub struct LayoutSession<S: AsRef<str>> {
 
 pub struct LayoutFragment {
     // Length of substring covered by this fragment.
-    pub(crate) substr_len: usize,
-    pub(crate) script: hb_script_t,
-    pub(crate) advance: Vector2F,
-    pub(crate) glyphs: Vec<FragmentGlyph>,
-    pub(crate) font: FontRef,
+    pub substr_len: usize,
+    pub script: hb_script_t,
+    pub advance: Vector2F,
+    pub glyphs: Vec<FragmentGlyph>,
+    pub font: FontRef,
 }
 
 // This should probably be renamed "glyph".
 //
 // Discussion topic: this is so similar to hb_glyph_info_t, maybe we
 // should just use that.
-pub(crate) struct FragmentGlyph {
+pub struct FragmentGlyph {
     pub cluster: u32,
     pub glyph_id: u32,
     pub offset: Vector2F,
