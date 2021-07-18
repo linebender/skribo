@@ -118,7 +118,9 @@ pub(crate) struct FontId {
 
 impl FontId {
     pub(crate) fn from_font(font: &FontRef) -> FontId {
-        FontId { postscript_name: font.font.postscript_name().unwrap_or_default() }
+        FontId {
+            postscript_name: font.font.postscript_name().unwrap_or_default(),
+        }
     }
 }
 
@@ -142,8 +144,7 @@ impl<'a> Iterator for Itemizer<'a> {
 
             if &self.collection.families.len() >= &1 {
                 Some((start..end, &self.collection.families[font_ix].fonts[0]))
-            }
-            else {
+            } else {
                 None
             }
         } else {
