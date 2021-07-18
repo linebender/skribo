@@ -171,7 +171,10 @@ pub fn layout_fragment(
             let unsafe_to_break = flags & HB_GLYPH_FLAG_UNSAFE_TO_BREAK != 0;
             trace!(
                 "{:?} {:?} {} {}",
-                glyph.codepoint, (pos.x_offset, pos.y_offset), glyph.cluster, unsafe_to_break
+                glyph.codepoint,
+                (pos.x_offset, pos.y_offset),
+                glyph.cluster,
+                unsafe_to_break
             );
             let g = FragmentGlyph {
                 cluster: glyph.cluster,
