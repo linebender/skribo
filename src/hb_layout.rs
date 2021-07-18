@@ -150,6 +150,13 @@ pub fn layout_fragment(
     let hb_face = HbFace::new(font);
     unsafe {
         let hb_font = hb_font_create(hb_face.hb_face);
+        if !font.location.is_empty() {
+            hb_font_set_variations(
+                hb_font,
+                get_variation_data(font).as_ptr(),
+                font.location.len() as u32,
+            );
+        }
         hb_shape(hb_font, b.as_ptr(), std::ptr::null(), 0);
         hb_font_destroy(hb_font);
         let mut n_glyph = 0;
@@ -206,6 +213,21 @@ fn float_to_fixed(f: f32) -> i32 {
 #[allow(unused)]
 fn fixed_to_float(i: hb_position_t) -> f32 {
     (i as f32) * (1.0 / 65536.0)
+}
+
+fn tag_to_int(tag: [u8; 4]) -> u32 {
+    (tag[0] as u32) << 24 | (tag[1] as u32) << 16 | (tag[2] as u32) << 8 | (tag[3] as u32)
+}
+
+fn get_variation_data(font: &FontRef) -> Vec<hb_variation_t> {
+    let mut res = vec![];
+    for (tag, value) in font.location.iter() {
+        res.push(hb_variation_t {
+            tag: tag_to_int(*tag),
+            value: *value,
+        });
+    }
+    res
 }
 
 /*
