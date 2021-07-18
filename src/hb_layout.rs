@@ -1,19 +1,18 @@
 //! A HarfBuzz shaping back-end.
 
-use pathfinder_geometry::vector::{Vector2F, vec2i};
+use harfbuzz_sys::{hb_font_set_variations, hb_variation_t};
+use pathfinder_geometry::vector::{vec2i, Vector2F};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 use harfbuzz::sys::{
-    hb_buffer_get_glyph_infos,
-    hb_buffer_get_glyph_positions, hb_face_create, hb_face_destroy, hb_face_reference, hb_face_t,
-    hb_font_create, hb_font_destroy, hb_position_t, hb_shape,
+    hb_buffer_get_glyph_infos, hb_buffer_get_glyph_positions, hb_face_create, hb_face_destroy,
+    hb_face_reference, hb_face_t, hb_font_create, hb_font_destroy, hb_position_t, hb_shape,
+};
+use harfbuzz::sys::{
+    hb_glyph_info_get_glyph_flags, hb_script_t, HB_GLYPH_FLAG_UNSAFE_TO_BREAK, HB_SCRIPT_DEVANAGARI,
 };
 use harfbuzz::{Blob, Buffer, Direction, Language};
-use harfbuzz::sys::{
-    hb_glyph_info_get_glyph_flags, hb_script_t, HB_GLYPH_FLAG_UNSAFE_TO_BREAK,
-    HB_SCRIPT_DEVANAGARI,
-};
 
 use crate::collection::FontId;
 use crate::session::{FragmentGlyph, LayoutFragment};
@@ -31,13 +30,17 @@ struct HbThreadData {
 
 impl HbThreadData {
     fn new() -> HbThreadData {
-        HbThreadData { hb_face_cache: HashMap::new() }
+        HbThreadData {
+            hb_face_cache: HashMap::new(),
+        }
     }
 
     fn create_hb_face_for_font(&mut self, font: &FontRef) -> HbFace {
-        (*self.hb_face_cache.entry(FontId::from_font(font)).or_insert_with(|| {
-            HbFace::new(font)
-        })).clone()
+        (*self
+            .hb_face_cache
+            .entry(FontId::from_font(font))
+            .or_insert_with(|| HbFace::new(font)))
+        .clone()
     }
 }
 
@@ -123,21 +126,37 @@ pub fn layout_run(style: &TextStyle, font: &FontRef, text: &str) -> Layout {
     })
 }
 
-pub(crate) fn layout_fragment(
+pub fn layout_fragment(
     style: &TextStyle,
     font: &FontRef,
-    script: hb_script_t,
+    direction: Option<Direction>,
+    script: Option<hb_script_t>,
+    language: Option<String>,
     text: &str,
 ) -> LayoutFragment {
     let mut b = Buffer::new();
     install_unicode_funcs(&mut b);
     b.add_str(text);
-    b.set_direction(Direction::LTR);
-    b.set_script(script);
-    b.set_language(Language::from_string("en_US"));
+    b.guess_segment_properties();
+    if let Some(d) = direction {
+        b.set_direction(d);
+    }
+    if let Some(s) = script {
+        b.set_script(s);
+    }
+    if let Some(lang) = language {
+        b.set_language(Language::from_string(&lang));
+    }
     let hb_face = HbFace::new(font);
     unsafe {
         let hb_font = hb_font_create(hb_face.hb_face);
+        if !font.location.is_empty() {
+            hb_font_set_variations(
+                hb_font,
+                get_variation_data(font).as_ptr(),
+                font.location.len() as u32,
+            );
+        }
         hb_shape(hb_font, b.as_ptr(), std::ptr::null(), 0);
         hb_font_destroy(hb_font);
         let mut n_glyph = 0;
@@ -159,7 +178,10 @@ pub(crate) fn layout_fragment(
             let unsafe_to_break = flags & HB_GLYPH_FLAG_UNSAFE_TO_BREAK != 0;
             trace!(
                 "{:?} {:?} {} {}",
-                glyph.codepoint, (pos.x_offset, pos.y_offset), glyph.cluster, unsafe_to_break
+                glyph.codepoint,
+                (pos.x_offset, pos.y_offset),
+                glyph.cluster,
+                unsafe_to_break
             );
             let g = FragmentGlyph {
                 cluster: glyph.cluster,
@@ -175,8 +197,8 @@ pub(crate) fn layout_fragment(
         LayoutFragment {
             //size: style.size,
             substr_len: text.len(),
-            script,
-            glyphs: glyphs,
+            script: b.get_script(),
+            glyphs,
             advance: total_adv,
             font: font.clone(),
         }
@@ -191,6 +213,21 @@ fn float_to_fixed(f: f32) -> i32 {
 #[allow(unused)]
 fn fixed_to_float(i: hb_position_t) -> f32 {
     (i as f32) * (1.0 / 65536.0)
+}
+
+fn tag_to_int(tag: [u8; 4]) -> u32 {
+    (tag[0] as u32) << 24 | (tag[1] as u32) << 16 | (tag[2] as u32) << 8 | (tag[3] as u32)
+}
+
+fn get_variation_data(font: &FontRef) -> Vec<hb_variation_t> {
+    let mut res = vec![];
+    for (tag, value) in font.location.iter() {
+        res.push(hb_variation_t {
+            tag: tag_to_int(*tag),
+            value: *value,
+        });
+    }
+    res
 }
 
 /*

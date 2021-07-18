@@ -1,10 +1,11 @@
 //! The font collection type.
 
+use crate::Font;
+use std::collections::HashMap;
+use std::convert::TryInto;
 use std::fmt;
 use std::ops::Range;
 use std::sync::Arc;
-
-use crate::Font;
 
 /// A collection of fonts
 pub struct FontCollection {
@@ -20,6 +21,7 @@ pub struct FontFamily {
 #[derive(Clone)]
 pub struct FontRef {
     pub font: Arc<Font>,
+    pub location: HashMap<[u8; 4], f32>,
 }
 
 impl fmt::Debug for FontRef {
@@ -38,6 +40,16 @@ impl FontRef {
     pub fn new(font: Font) -> FontRef {
         FontRef {
             font: Arc::new(font),
+            location: HashMap::new(),
+        }
+    }
+
+    pub fn set_axis_location(&mut self, tag: &str, location: f32) -> bool {
+        if let Ok(t) = tag.as_bytes().try_into() {
+            self.location.insert(t, location);
+            true
+        } else {
+            false
         }
     }
 }
@@ -106,7 +118,9 @@ pub(crate) struct FontId {
 
 impl FontId {
     pub(crate) fn from_font(font: &FontRef) -> FontId {
-        FontId { postscript_name: font.font.postscript_name().unwrap_or_default() }
+        FontId {
+            postscript_name: font.font.postscript_name().unwrap_or_default(),
+        }
     }
 }
 
@@ -130,8 +144,7 @@ impl<'a> Iterator for Itemizer<'a> {
 
             if &self.collection.families.len() >= &1 {
                 Some((start..end, &self.collection.families[font_ix].fonts[0]))
-            }
-            else {
+            } else {
                 None
             }
         } else {

@@ -19,20 +19,20 @@ pub struct LayoutSession<S: AsRef<str>> {
     substr_fragments: Vec<LayoutFragment>,
 }
 
-pub(crate) struct LayoutFragment {
+pub struct LayoutFragment {
     // Length of substring covered by this fragment.
-    pub(crate) substr_len: usize,
-    pub(crate) script: hb_script_t,
-    pub(crate) advance: Vector2F,
-    pub(crate) glyphs: Vec<FragmentGlyph>,
-    pub(crate) font: FontRef,
+    pub substr_len: usize,
+    pub script: hb_script_t,
+    pub advance: Vector2F,
+    pub glyphs: Vec<FragmentGlyph>,
+    pub font: FontRef,
 }
 
 // This should probably be renamed "glyph".
 //
 // Discussion topic: this is so similar to hb_glyph_info_t, maybe we
 // should just use that.
-pub(crate) struct FragmentGlyph {
+pub struct FragmentGlyph {
     pub cluster: u32,
     pub glyph_id: u32,
     pub offset: Vector2F,
@@ -64,18 +64,15 @@ pub struct GlyphInfo {
 }
 
 impl<S: AsRef<str>> LayoutSession<S> {
-    pub fn create(
-        text: S,
-        style: &TextStyle,
-        collection: &FontCollection,
-    ) -> LayoutSession<S> {
+    pub fn create(text: S, style: &TextStyle, collection: &FontCollection) -> LayoutSession<S> {
         let mut i = 0;
         let mut fragments = Vec::new();
         while i < text.as_ref().len() {
             let (script, script_len) = get_script_run(&text.as_ref()[i..]);
             let script_substr = &text.as_ref()[i..i + script_len];
             for (range, font) in collection.itemize(script_substr) {
-                let fragment = layout_fragment(style, font, script, &script_substr[range]);
+                let fragment =
+                    layout_fragment(style, font, None, Some(script), None, &script_substr[range]);
                 fragments.push(fragment);
             }
             i += script_len;
@@ -131,7 +128,8 @@ impl<S: AsRef<str>> LayoutSession<S> {
             let font = &fragment.font;
             let script = fragment.script;
             // TODO: we should pass in the hb_face too, just for performance.
-            let substr_fragment = layout_fragment(&self.style, font, script, substr);
+            let substr_fragment =
+                layout_fragment(&self.style, font, None, Some(script), None, substr);
             self.substr_fragments.push(substr_fragment);
             str_offset += fragment_len;
             fragment_ix += 1;
