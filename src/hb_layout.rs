@@ -126,18 +126,27 @@ pub fn layout_run(style: &TextStyle, font: &FontRef, text: &str) -> Layout {
     })
 }
 
-pub(crate) fn layout_fragment(
+pub fn layout_fragment(
     style: &TextStyle,
     font: &FontRef,
-    script: hb_script_t,
+    direction: Option<Direction>,
+    script: Option<hb_script_t>,
+    language: Option<String>,
     text: &str,
 ) -> LayoutFragment {
     let mut b = Buffer::new();
     install_unicode_funcs(&mut b);
     b.add_str(text);
-    b.set_direction(Direction::LTR);
-    b.set_script(script);
-    b.set_language(Language::from_string("en_US"));
+    b.guess_segment_properties();
+    if let Some(d) = direction {
+        b.set_direction(d);
+    }
+    if let Some(s) = script {
+        b.set_script(s);
+    }
+    if let Some(lang) = language {
+        b.set_language(Language::from_string(&lang));
+    }
     let hb_face = HbFace::new(font);
     unsafe {
         let hb_font = hb_font_create(hb_face.hb_face);
@@ -178,8 +187,8 @@ pub(crate) fn layout_fragment(
         LayoutFragment {
             //size: style.size,
             substr_len: text.len(),
-            script,
-            glyphs: glyphs,
+            script: b.get_script(),
+            glyphs,
             advance: total_adv,
             font: font.clone(),
         }

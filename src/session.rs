@@ -71,7 +71,8 @@ impl<S: AsRef<str>> LayoutSession<S> {
             let (script, script_len) = get_script_run(&text.as_ref()[i..]);
             let script_substr = &text.as_ref()[i..i + script_len];
             for (range, font) in collection.itemize(script_substr) {
-                let fragment = layout_fragment(style, font, script, &script_substr[range]);
+                let fragment =
+                    layout_fragment(style, font, None, Some(script), None, &script_substr[range]);
                 fragments.push(fragment);
             }
             i += script_len;
@@ -127,7 +128,8 @@ impl<S: AsRef<str>> LayoutSession<S> {
             let font = &fragment.font;
             let script = fragment.script;
             // TODO: we should pass in the hb_face too, just for performance.
-            let substr_fragment = layout_fragment(&self.style, font, script, substr);
+            let substr_fragment =
+                layout_fragment(&self.style, font, None, Some(script), None, substr);
             self.substr_fragments.push(substr_fragment);
             str_offset += fragment_len;
             fragment_ix += 1;
