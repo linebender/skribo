@@ -1,10 +1,11 @@
 //! The font collection type.
 
+use crate::Font;
+use std::collections::HashMap;
+use std::convert::TryInto;
 use std::fmt;
 use std::ops::Range;
 use std::sync::Arc;
-
-use crate::Font;
 
 /// A collection of fonts
 pub struct FontCollection {
@@ -20,6 +21,7 @@ pub struct FontFamily {
 #[derive(Clone)]
 pub struct FontRef {
     pub font: Arc<Font>,
+    pub location: HashMap<[u8; 4], f32>,
 }
 
 impl fmt::Debug for FontRef {
@@ -38,6 +40,16 @@ impl FontRef {
     pub fn new(font: Font) -> FontRef {
         FontRef {
             font: Arc::new(font),
+            location: HashMap::new(),
+        }
+    }
+
+    pub fn set_axis_location(&mut self, tag: &str, location: f32) -> bool {
+        if let Ok(t) = tag.as_bytes().try_into() {
+            self.location.insert(t, location);
+            true
+        } else {
+            false
         }
     }
 }
