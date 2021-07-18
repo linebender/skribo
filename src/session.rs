@@ -19,7 +19,7 @@ pub struct LayoutSession<S: AsRef<str>> {
     substr_fragments: Vec<LayoutFragment>,
 }
 
-pub(crate) struct LayoutFragment {
+pub struct LayoutFragment {
     // Length of substring covered by this fragment.
     pub(crate) substr_len: usize,
     pub(crate) script: hb_script_t,
