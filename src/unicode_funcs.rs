@@ -20,10 +20,10 @@ use crate::tables::{
 };
 
 fn make_unicode_funcs() -> *mut hb_unicode_funcs_t {
-    unsafe {
-        let funcs_ptr = hb_unicode_funcs_create(null_mut());
+    
+        let funcs_ptr = unsafe { hb_unicode_funcs_create(null_mut()) };
         funcs_ptr
-    }
+    
 }
 
 pub fn install_unicode_funcs(buffer: &mut Buffer) {
